@@ -19,6 +19,11 @@ if runtime != "competition":
             "KCore"
             ]
 
+    #for some reasons competition runtime won't build the executable, so doing this here for now
+    origenv = env.Clone()
+    origenv['OBJSUFFIX'] = '.os'
+    origenv.Program(target='sKCore', source=['KCore.C'])
+    
     env = env.Clone()
     env.Append(CPPDEFINES = ["CAN_USE_SWARM_API"])
     # Imitate the default Ligra parallelization strategy: use coarse grain inner
@@ -37,12 +42,13 @@ if runtime != "competition":
     cgCompEnv = env.Clone()
     cgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE', 'COARSE_GRAIN'])
     cgCompEnv['PROGSUFFIX'] = '_cg_comp'
-    cgCompEnv['OBJSUFFIX'] = '.cgco'
-    
+    cgCompEnv['OBJSUFFIX'] = '.cgco' 
 
     for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv]:
         for app in apps:
             env.Program(target='pls' + app, source=[app + '_pls.C'])
+
+
 else:
 
     apps = [

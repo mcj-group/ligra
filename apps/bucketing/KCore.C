@@ -2,6 +2,7 @@
 #include "index_map.h"
 #include "bucket.h"
 #include "edgeMapReduce.h"
+#include "swarm/hooks.h"
 
 template <class vertex>
 array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
@@ -10,7 +11,7 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
 
   auto em = EdgeMap<uintE, vertex>(GA, make_tuple(UINT_E_MAX, 0), (size_t)GA.m/5);
   auto b = make_buckets(n, D, increasing, num_buckets);
-
+  zsim_roi_begin();
   size_t finished = 0;
   while (finished != n) {
     auto bkt = b.next_bucket();
@@ -34,6 +35,7 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
     b.update_buckets(moved.get_fn_repr(), moved.size());
     moved.del(); active.del();
   }
+  zsim_roi_end();
   return D;
 }
 
