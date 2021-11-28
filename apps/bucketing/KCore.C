@@ -13,7 +13,7 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
   auto b = make_buckets(n, D, increasing, num_buckets);
   zsim_roi_begin();
   size_t finished = 0;
-  while (finished != n) {
+  while (finished < n) {
     auto bkt = b.next_bucket();
     auto active = bkt.identifiers;
     uintE k = bkt.id;
@@ -23,7 +23,7 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
       uintE v = std::get<0>(p), edgesRemoved = std::get<1>(p);
       uintE deg = D.s[v];
       if (deg > k) {
-        uintE new_deg = max(deg - edgesRemoved, k);
+        uintE new_deg = edgesRemoved > deg ? k : max(deg - edgesRemoved, k);
         D.s[v] = new_deg;
         uintE bkt = b.get_bucket(deg, new_deg);
         return wrap(v, bkt);

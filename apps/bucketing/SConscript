@@ -11,7 +11,7 @@ if not GetOption('clang'): env.Append(CPPFLAGS = ['-fno-tree-loop-vectorize'])
 # [mcj] The applications won't build with the following defined.
 # So I guess we're using 32-bit integers
 # [gp] KCore builds fine with them
-env.Append(CPPDEFINES = ['LONG', 'EDGELONG'])
+env.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
 # TODO decide about -DPD -DBYTE -DNIBBLE  -DBYTERLE
 
 if runtime != "competition":
@@ -19,11 +19,6 @@ if runtime != "competition":
             "KCore"
             ]
 
-    #for some reasons competition runtime won't build the executable, so doing this here for now
-    origenv = env.Clone()
-    origenv['OBJSUFFIX'] = '.os'
-    origenv.Program(target='sKCore', source=['KCore.C'])
-    
     env = env.Clone()
     env.Append(CPPDEFINES = ["CAN_USE_SWARM_API"])
     # Imitate the default Ligra parallelization strategy: use coarse grain inner
