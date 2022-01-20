@@ -30,13 +30,18 @@
 #include "ligra.h"
 #include "quickSort.h"
 
-#include "swarm/hooks.h"
+#include "ligra_pls.h"
+#include "swarm/api.h"
+#include "swarm/numeric.h"
+#include "swarm/cps.h"
+#include <functional>
 
 //assumes sorted neighbor lists
 template <class vertex>
-long countCommon(vertex& A, vertex& B, uintE a, uintE b) {
+long countCommon(const vertex& A, const vertex& B, uintE a, uintE b) {
   uintT i=0,j=0,nA = A.getOutDegree(), nB = B.getOutDegree();
-  uintE* nghA = (uintE*) A.getOutNeighbors(), *nghB = (uintE*) B.getOutNeighbors();
+  const uintE* nghA = A.getOutNeighbors();
+  const uintE* nghB = B.getOutNeighbors();
   long ans=0;
   while (i < nA && j < nB && nghA[i] < a && nghB[j] < b) { //count "directed" triangles
     if (nghA[i]==nghB[j]) i++, j++, ans++;
@@ -45,6 +50,25 @@ long countCommon(vertex& A, vertex& B, uintE a, uintE b) {
   }
   return ans;
 }
+
+template <>
+long countCommon<compressedSymmetricVertex>(
+        const compressedSymmetricVertex&,
+        const compressedSymmetricVertex&,
+        uintE, uintE) {
+    std::cerr << "Unimplemented" << std::endl;
+    std::abort();
+}
+
+template <>
+long countCommon<compressedAsymmetricVertex>(
+        const compressedAsymmetricVertex&,
+        const compressedAsymmetricVertex&,
+        uintE, uintE) {
+    std::cerr << "Unimplemented" << std::endl;
+    std::abort();
+}
+
 
 template <class vertex>
 struct countF { //for edgeMap
@@ -58,10 +82,25 @@ struct countF { //for edgeMap
   }
   inline bool updateAtomic (uintE s, uintE d) {
     if (s > d) //only count "directed" triangles
-      writeAdd(&counts[s], countCommon<vertex>(V[s],V[d],s,d));
+      // No CAS because Hints guarantee non-speculative correctness
+      counts[s] += countCommon<vertex>(V[s],V[d],s,d);
     return 1;
   }
-  inline bool cond (uintE d) { return cond_true(d); } //does nothing
+  inline bool cond (uintE d) const { return cond_true(d); } //does nothing
+
+  swarm::Hint hintCG(uintE d) const {
+      // The CG task centers around vertex 'd', but update()s counts at all its
+      // neighbors 's' via writeAdd, which uses compare-and-swap.
+      // NOHINT: a hint of 'd' isn't particularly useful (unverified)
+      // MAYSPEC: speculation is unnecessary because of the compare-and-swap
+      return EnqFlags(NOHINT | MAYSPEC);
+  }
+
+  swarm::Hint hintFG(uintE s, uintE d) const {
+      // s: the FG task updates a count for vertex s
+      // MAYSPEC: we're using cacheLine hints, and compare-and-swap
+      return {swarm::Hint::cacheLine(&counts[s]), EnqFlags::MAYSPEC};
+  }
 };
 
 struct intLT { bool operator () (uintT a, uintT b) { return a < b; }; };
@@ -69,32 +108,48 @@ struct intLT { bool operator () (uintT a, uintT b) { return a < b; }; };
 template <class vertex>
 struct initF { //for vertexMap to initial counts and sort neighbors for merging
   vertex* V;
-  long* counts;
-  initF(vertex* _V, long* _counts) : V(_V), counts(_counts) {}
+  initF(vertex* _V) : V(_V) {}
   inline bool operator () (uintE i) {
-    counts[i] = 0;
     quickSort(V[i].getOutNeighbors(),V[i].getOutDegree(),intLT());
     return 1;
   }
+
+  swarm::Hint hint(uintE) const {
+    return EnqFlags(NOHINT | MAYSPEC); // The quickSorts are independent
+  }
 };
+
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
   uintT n = GA.n;
   long* counts = newA(long,n);
   bool* frontier = newA(bool,n);
-  vertexSubset Frontier(n,n,frontier); //frontier contains all vertices
+  vertexSubset Frontier(n,n,frontier);
 
-  zsim_roi_begin();
+  initF<vertex> init_f(GA.V);
+  countF<vertex> count_f(GA.V, counts);
 
-  {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
+  //frontier contains all vertices
+  swarm::fill<EnqFlags(NOHINT | MAYSPEC)>(frontier, frontier + n, true, 0ul);
+  swarm::fill<EnqFlags(NOHINT | MAYSPEC)>(counts, counts + n, 0, 1ul);
 
-  vertexMap(Frontier,initF<vertex>(GA.V,counts));
-  edgeMap(GA,Frontier,countF<vertex>(GA.V,counts), -1, no_output);
-  long count = sequence::plusReduce(counts,n);
-  cout << "triangle count = " << count << endl;
+  pls_vertexMapDense(1ul, Frontier, &init_f);
 
-  zsim_roi_end();
+  pls_cbegin(2ul, EnqFlags(NOHINT | CANTSPEC),
+             [&count_f, &GA, &Frontier, &counts]);
+  pls_edgeMapDense<pbbs::empty>(ts, GA, Frontier, &count_f);
 
+  pls_cbegin(3ul, EnqFlags(NOHINT | CANTSPEC), [&GA, &counts]);
+
+  swarm::reduce(counts, counts + GA.n, 0ul, std::plus<uint64_t>(), ts,
+      [] (swarm::Timestamp ts, uint64_t sum) {
+        std::cout << "triangle count = " << sum << std::endl;
+      });
+
+  pls_cend();
+  pls_cend();
+
+  swarm::run();
   Frontier.del(); free(counts);
 }

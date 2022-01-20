@@ -26,7 +26,7 @@ namespace decode_compressed {
     VS vs;
     F f;
     G g;
-  denseT(F &_f, G &_g, VS& _vs) : f(_f), g(_g), vs(_vs) {}
+  denseT(F &_f, G &_g, VS& _vs) : vs(_vs), f(_f), g(_g) {}
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (vs.isIn(target)) {
@@ -75,7 +75,7 @@ namespace decode_compressed {
     uintT v, o;
     F f;
     G g;
-  sparseT(F &_f, G &_g, uintT vP, uintT oP) : f(_f), g(_g), v(vP), o(oP) { }
+  sparseT(F &_f, G &_g, uintT vP, uintT oP) : v(vP), o(oP), f(_f), g(_g) { }
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (f.cond(target)) {
@@ -103,7 +103,7 @@ namespace decode_compressed {
     F f;
     G g;
     size_t& k;
-  sparseTSeq(F &_f, G &_g, uintT vP, uintT oP, size_t& _k) : f(_f), g(_g), v(vP), o(oP), k(_k) { }
+  sparseTSeq(F &_f, G &_g, uintT vP, uintT oP, size_t& _k) : v(vP), o(oP), f(_f), g(_g), k(_k) { }
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (f.cond(target)) {
@@ -262,11 +262,13 @@ struct compressedSymmetricVertex {
   uchar* neighbors;
   uintT degree;
   uchar* getInNeighbors() { return neighbors; }
+  const uchar* getInNeighbors() const { return neighbors; }
   uchar* getOutNeighbors() { return neighbors; }
-  intT getInNeighbor(intT j) { return -1; } //should not be called
-  intT getOutNeighbor(intT j) { return -1; } //should not be called
-  uintT getInDegree() { return degree; }
-  uintT getOutDegree() { return degree; }
+  const uchar* getOutNeighbors() const { return neighbors; }
+  intT getInNeighbor(intT j) const { return -1; } //should not be called
+  intT getOutNeighbor(intT j) const { return -1; } //should not be called
+  uintT getInDegree() const { return degree; }
+  uintT getOutDegree() const { return degree; }
   void setInNeighbors(uchar* _i) { neighbors = _i; }
   void setOutNeighbors(uchar* _i) { neighbors = _i; }
   void setInDegree(uintT _d) { degree = _d; }
@@ -318,11 +320,13 @@ struct compressedAsymmetricVertex {
   uintT outDegree;
   uintT inDegree;
   uchar* getInNeighbors() { return inNeighbors; }
+  const uchar* getInNeighbors() const { return inNeighbors; }
   uchar* getOutNeighbors() { return outNeighbors; }
-  intT getInNeighbor(intT j) { return -1; } //should not be called
-  intT getOutNeighbor(intT j) { return -1; } //should not be called
-  uintT getInDegree() { return inDegree; }
-  uintT getOutDegree() { return outDegree; }
+  const uchar* getOutNeighbors() const { return outNeighbors; }
+  intT getInNeighbor(intT j) const { return -1; } //should not be called
+  intT getOutNeighbor(intT j) const { return -1; } //should not be called
+  uintT getInDegree() const { return inDegree; }
+  uintT getOutDegree() const { return outDegree; }
   void setInNeighbors(uchar* _i) { inNeighbors = _i; }
   void setOutNeighbors(uchar* _i) { outNeighbors = _i; }
   void setInDegree(uintT _d) { inDegree = _d; }

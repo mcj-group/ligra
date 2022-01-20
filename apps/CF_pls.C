@@ -19,16 +19,20 @@
 
 #define WEIGHTED 1
 #include "ligra.h"
+#include "ligra_pls.h"
+#include "swarm/api.h"
+
 //uncomment the following line to compute the sum of squared errors per iteration
 //#define COMPUTE_ERROR 1
 //uncomment the following line to print out the sum of values in latent vector
 //#define DEBUG 1
 
-#include "swarm/hooks.h"
 
 #ifdef COMPUTE_ERROR
 double* squaredErrors;
 #endif
+
+#define TS_PER_ITERATION (2)
 
 template <class vertex>
 struct CF_Edge_F {
@@ -37,7 +41,8 @@ struct CF_Edge_F {
   int K;
   CF_Edge_F(vertex* _V, double* _latent_curr, double* _error, int _K) :
     latent_curr(_latent_curr), error(_error), V(_V), K(_K) {}
-  inline bool update(uintE s, uintE d, intE edgeLen){ //updates latent vector based on neighbors' data
+  //updates latent vector based on neighbors' data
+  inline bool update(uintE s, uintE d, intE edgeLen) const {
     double estimate = 0;
     long current_offset = K*d, ngh_offset = K*s;
     double *cur_latent =  &latent_curr[current_offset], *ngh_latent = &latent_curr[ngh_offset];
@@ -56,11 +61,19 @@ struct CF_Edge_F {
     }
     return 1;
   }
-  inline bool updateAtomic (uintE s, uintE d, intE edgeLen) {
+  inline bool updateAtomic (uintE s, uintE d, intE edgeLen) const {
     //not needed as we will always do pull based
     return update(s,d,edgeLen);
   }
-  inline bool cond (intT d) { return cond_true(d); }};
+
+  inline bool cond(intT d) const { return cond_true(d); }
+
+  swarm::Hint hintCG(uintE d) const {
+      return {swarm::Hint::cacheLine(&error[K*d]), EnqFlags::MAYSPEC};
+  }
+
+  swarm::Hint hintFG(uintE s, uintE d) const { return hintCG(d); }
+};
 
 struct CF_Vertex_F {
   double step, lambda;
@@ -68,7 +81,7 @@ struct CF_Vertex_F {
   int K;
   CF_Vertex_F(double _step, double _lambda, double* _latent_curr, double* _error, int _K) :
     step(_step), lambda(_lambda), latent_curr(_latent_curr), error(_error), K(_K) {}
-  inline bool operator () (uintE i) {
+  inline bool operator () (uintE i) const {
     for (int j = 0; j < K; j++){
       latent_curr[K*i + j] += step*(-lambda*latent_curr[K*i + j] + error[K*i + j]);
       error[K*i+j] = 0.0;
@@ -78,7 +91,39 @@ struct CF_Vertex_F {
 #endif
     return 1;
   }
+  swarm::Hint hint(uintE v) const {
+    return {swarm::Hint::cacheLine(&error[K*v]), EnqFlags::MAYSPEC};
+  }
 };
+
+// [mcj] OMG we need a timestamped sequential loop in the runtime
+template <class vertex>
+struct Iteration {
+    graph<vertex>& GA;
+    vertexSubset& Frontier;
+    swarm::Timestamp lastTS;
+    CF_Edge_F<vertex> edge_f;
+    CF_Vertex_F vertex_f;
+
+    void operator() (swarm::Timestamp ts) {
+        if (ts >= lastTS) return;
+        swarm::info("iteration %ld", (ts - 1) / TS_PER_ITERATION);
+
+        //edgemap to accumulate error for each node
+        pls_edgeMapDense<pbbs::empty>(ts, GA, Frontier, &edge_f);
+
+        swarm::enqueueLambda([this] (swarm::Timestamp ts) {
+            //vertexmap to update the latent vectors
+            pls_vertexMapDense(ts, this->Frontier, &this->vertex_f);
+            swarm::enqueueLambda(this, ts + 1, EnqFlags(NOHINT | CANTSPEC));
+        }, ts + 1,
+        // Use CANTSPEC to treat ts + 1 as a barrier (this has better
+        // performance than swarm::serialize, as it does not incur an exception,
+        // sending the whole system into exception mode).
+        EnqFlags(NOHINT | CANTSPEC));
+    }
+};
+
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
@@ -102,8 +147,8 @@ void Compute(graph<vertex>& GA, commandLine P) {
       squaredErrors[n] = 0;
 #endif
       for (int j = 0; j < K; j++){
-	latent_curr[i*K+j] = ((double)(seed+hashInt((uintE)i*K+j))/(double)UINT_E_MAX);
-	error[i*K+j] = 0.0;
+        latent_curr[i*K+j] = ((double)(seed+hashInt((uintE)i*K+j))/(double)UINT_E_MAX);
+        error[i*K+j] = 0.0;
       }
     }
   } else {
@@ -112,41 +157,23 @@ void Compute(graph<vertex>& GA, commandLine P) {
       squaredErrors[n] = 0;
 #endif
       for (int j = 0; j < K; j++){
-	latent_curr[i*K+j] = 0.5; //default initial value of 0.5
-	error[i*K+j] = 0.0;
+        latent_curr[i*K+j] = 0.5; //default initial value of 0.5
+        error[i*K+j] = 0.0;
       }
     }
   }
 
   bool* frontier = newA(bool,n);
   vertexSubset Frontier(n,n,frontier);
+  swarm::fill<EnqFlags(NOHINT | MAYSPEC)>(frontier, frontier + n, true, 0ul);
 
-  zsim_roi_begin();
-
-  {parallel_for(long i=0;i<n;i++) frontier[i] = 1;}
-
-  for (int iter = 0; iter < numIter; iter++){
-    //edgemap to accumulate error for each node
-    // [mcj] For fairness with Swarm, hardcode to edgeMapDense, since we know
-    // the frontier is always full. This is the approach that the Swarm version
-    // takes, and saves some time to avoid deciding whether to run sparsely or
-    // densely.
-    auto f = CF_Edge_F<vertex>(GA.V,latent_curr,error,K);
-    edgeMapDense<pbbs::empty>(GA, Frontier, f, no_output);
-
-#ifdef COMPUTE_ERROR
-    cout << "sum of squared error: " << sequence::plusReduce(squaredErrors,n)/2 << " for iter: " << iter << endl;
-#endif
-
-    //vertexmap to update the latent vectors
-    vertexMap(Frontier,CF_Vertex_F(step,lambda,latent_curr,error,K));
-
-#ifdef DEBUG
-    cout << "latent sum: " << sequence::plusReduce(latent_curr,K*n) << endl;
-#endif
-  }
-
-  zsim_roi_end();
+  swarm::Timestamp lastTS = 1ul + numIter * TS_PER_ITERATION;
+  Iteration<vertex> iteration = {GA, Frontier, lastTS,
+      CF_Edge_F<vertex>(GA.V,latent_curr,error,K),
+      CF_Vertex_F(step,lambda,latent_curr,error,K)
+    };
+  swarm::enqueueLambda(&iteration, 1ul, EnqFlags(NOHINT | CANTSPEC));
+  swarm::run();
 
   Frontier.del(); free(latent_curr); free(error);
 #ifdef COMPUTE_ERROR

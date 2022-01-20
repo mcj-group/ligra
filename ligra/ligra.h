@@ -1,5 +1,5 @@
 // This code is part of the project "Ligra: A Lightweight Graph Processing
-// Framework for Shared Memory", presented at Principles and Practice of 
+// Framework for Shared Memory", presented at Principles and Practice of
 // Parallel Programming, 2013.
 // Copyright (c) 2013 Julian Shun and Guy Blelloch
 //
@@ -473,7 +473,6 @@ int parallel_main(int argc, char* argv[]) {
     if (symmetric) {
       graph<compressedSymmetricVertex> G =
         readCompressedGraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
-      Compute(G,P);
       for(int r=0;r<rounds;r++) {
         startTime();
         Compute(G,P);
@@ -483,7 +482,6 @@ int parallel_main(int argc, char* argv[]) {
     } else {
       graph<compressedAsymmetricVertex> G =
         readCompressedGraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
-      Compute(G,P);
       if(G.transposed) G.transpose();
       for(int r=0;r<rounds;r++) {
         startTime();
@@ -497,7 +495,6 @@ int parallel_main(int argc, char* argv[]) {
     if (symmetric) {
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
-      Compute(G,P);
       for(int r=0;r<rounds;r++) {
         startTime();
         Compute(G,P);
@@ -507,7 +504,6 @@ int parallel_main(int argc, char* argv[]) {
     } else {
       graph<asymmetricVertex> G =
         readGraph<asymmetricVertex>(iFile,compressed,symmetric,binary,mmap); //asymmetric graph
-      Compute(G,P);
       if(G.transposed) G.transpose();
       for(int r=0;r<rounds;r++) {
         startTime();

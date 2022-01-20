@@ -3,6 +3,10 @@
 #include "vertexSubset.h"
 using namespace std;
 
+#ifdef CAN_USE_SWARM_API
+#include "vertex_pls.h"
+#endif
+
 namespace decode_uncompressed {
 
   // Used by edgeMapDense. Callers ensure cond(v_id). For each vertex, decode
@@ -200,10 +204,12 @@ symmetricVertex(intE* n, uintT d)
 #endif
 : neighbors(n), degree(d) {}
 #ifndef WEIGHTED
-  uintE* getInNeighbors () { return neighbors; }
-  uintE* getOutNeighbors () { return neighbors; }
-  uintE getInNeighbor(uintT j) { return neighbors[j]; }
-  uintE getOutNeighbor(uintT j) { return neighbors[j]; }
+  uintE* getInNeighbors() { return neighbors; }
+  const uintE* getInNeighbors() const { return neighbors; }
+  uintE* getOutNeighbors() { return neighbors; }
+  const uintE* getOutNeighbors() const { return neighbors; }
+  uintE getInNeighbor(uintT j) const { return neighbors[j]; }
+  uintE getOutNeighbor(uintT j) const { return neighbors[j]; }
   void setInNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
   void setInNeighbors(uintE* _i) { neighbors = _i; }
@@ -212,11 +218,13 @@ symmetricVertex(intE* n, uintT d)
   //weights are stored in the entry after the neighbor ID
   //so size of neighbor list is twice the degree
   intE* getInNeighbors () { return neighbors; }
+  const intE* getInNeighbors () const { return neighbors; }
   intE* getOutNeighbors () { return neighbors; }
-  intE getInNeighbor(intT j) { return neighbors[2*j]; }
-  intE getOutNeighbor(intT j) { return neighbors[2*j]; }
-  intE getInWeight(intT j) { return neighbors[2*j+1]; }
-  intE getOutWeight(intT j) { return neighbors[2*j+1]; }
+  const intE* getOutNeighbors () const { return neighbors; }
+  intE getInNeighbor(intT j) const { return neighbors[2*j]; }
+  intE getOutNeighbor(intT j) const { return neighbors[2*j]; }
+  intE getInWeight(intT j) const { return neighbors[2*j+1]; }
+  intE getOutWeight(intT j) const { return neighbors[2*j+1]; }
   void setInNeighbor(uintT j, uintE ngh) { neighbors[2*j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { neighbors[2*j] = ngh; }
   void setInWeight(uintT j, intE wgh) { neighbors[2*j+1] = wgh; }
@@ -225,15 +233,20 @@ symmetricVertex(intE* n, uintT d)
   void setOutNeighbors(intE* _i) { neighbors = _i; }
 #endif
 
-  uintT getInDegree() { return degree; }
-  uintT getOutDegree() { return degree; }
+  uintT getInDegree() const { return degree; }
+  uintT getOutDegree() const { return degree; }
   void setInDegree(uintT _d) { degree = _d; }
   void setOutDegree(uintT _d) { degree = _d; }
   void flipEdges() {}
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+#ifdef CAN_USE_SWARM_API
+    // FIXME(mcj) implement a PLSvertex?
+    decode_uncompressed::pls_decodeInNghBreakEarly<symmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g);
+#else
     decode_uncompressed::decodeInNghBreakEarly<symmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+#endif
   }
 
   template <class F, class G>
@@ -284,21 +297,25 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
 #endif
 : inNeighbors(iN), outNeighbors(oN), inDegree(id), outDegree(od) {}
 #ifndef WEIGHTED
-  uintE* getInNeighbors () { return inNeighbors; }
-  uintE* getOutNeighbors () { return outNeighbors; }
-  uintE getInNeighbor(uintT j) { return inNeighbors[j]; }
-  uintE getOutNeighbor(uintT j) { return outNeighbors[j]; }
+  uintE* getInNeighbors() { return inNeighbors; }
+  const uintE* getInNeighbors() const { return inNeighbors; }
+  uintE* getOutNeighbors() { return outNeighbors; }
+  const uintE* getOutNeighbors() const { return outNeighbors; }
+  uintE getInNeighbor(uintT j) const { return inNeighbors[j]; }
+  uintE getOutNeighbor(uintT j) const { return outNeighbors[j]; }
   void setInNeighbor(uintT j, uintE ngh) { inNeighbors[j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[j] = ngh; }
   void setInNeighbors(uintE* _i) { inNeighbors = _i; }
   void setOutNeighbors(uintE* _i) { outNeighbors = _i; }
 #else
-  intE* getInNeighbors () { return inNeighbors; }
-  intE* getOutNeighbors () { return outNeighbors; }
-  intE getInNeighbor(uintT j) { return inNeighbors[2*j]; }
-  intE getOutNeighbor(uintT j) { return outNeighbors[2*j]; }
-  intE getInWeight(uintT j) { return inNeighbors[2*j+1]; }
-  intE getOutWeight(uintT j) { return outNeighbors[2*j+1]; }
+  intE* getInNeighbors() { return inNeighbors; }
+  const intE* getInNeighbors() const { return inNeighbors; }
+  intE* getOutNeighbors() { return outNeighbors; }
+  const intE* getOutNeighbors() const { return outNeighbors; }
+  intE getInNeighbor(uintT j) const { return inNeighbors[2*j]; }
+  intE getOutNeighbor(uintT j) const { return outNeighbors[2*j]; }
+  intE getInWeight(uintT j) const { return inNeighbors[2*j+1]; }
+  intE getOutWeight(uintT j) const { return outNeighbors[2*j+1]; }
   void setInNeighbor(uintT j, uintE ngh) { inNeighbors[2*j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { outNeighbors[2*j] = ngh; }
   void setInWeight(uintT j, uintE wgh) { inNeighbors[2*j+1] = wgh; }
@@ -307,15 +324,20 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
   void setOutNeighbors(intE* _i) { outNeighbors = _i; }
 #endif
 
-  uintT getInDegree() { return inDegree; }
-  uintT getOutDegree() { return outDegree; }
+  uintT getInDegree() const { return inDegree; }
+  uintT getOutDegree() const { return outDegree; }
   void setInDegree(uintT _d) { inDegree = _d; }
   void setOutDegree(uintT _d) { outDegree = _d; }
   void flipEdges() { swap(inNeighbors,outNeighbors); swap(inDegree,outDegree); }
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+#ifdef CAN_USE_SWARM_API
+    // FIXME(mcj) implement a PLSvertex?
+    decode_uncompressed::pls_decodeInNghBreakEarly<asymmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g);
+#else
     decode_uncompressed::decodeInNghBreakEarly<asymmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+#endif
   }
 
   template <class F, class G>
