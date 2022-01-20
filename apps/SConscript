@@ -1,0 +1,41 @@
+Import('env', 'runtime')
+env = env.Clone()
+
+# [mcj] The applications won't build with the following defined.
+# So I guess we're using 32-bit integers
+#env.Append(CPPDEFINES = ['LONG', 'EDGELONG'])
+# TODO decide about -DPD -DBYTE -DNIBBLE  -DBYTERLE
+
+if runtime == "competition":
+    apps = [#"encoder",
+            "BFS",
+            "BC",
+            "BellmanFord",
+            "Components",
+            "Radii",
+            "PageRank",
+            "PageRankDelta",
+            "BFSCC",
+            "BFS-Bitvector",
+            "KCore",
+            "MIS",
+            "Triangle",
+            ]
+
+    serialEnv = env.Clone()
+    # Just as with pbbs, this suite is riddled with warnings
+    serialEnv.Append(CPPFLAGS = ['-Wno-all'])
+    parallelEnv = serialEnv.Clone()
+    serialEnv['OBJSUFFIX'] = '.os'
+    parallelEnv['OBJSUFFIX'] = '.op'
+
+    conf = parallelEnv.Configure()
+    hasCilk = conf.CheckLibWithHeader('cilkrts', 'cilk/cilk.h', 'c')
+    parallelEnv = conf.Finish()
+    if hasCilk:
+        parallelEnv.Append(CPPFLAGS = ['-fcilkplus'])
+        parallelEnv.Append(CPPDEFINES = ['CILK'])
+        for app in apps:
+            parallelEnv.Program(target='p' + app, source=[app + '.C'])
+    for app in apps:
+        serialEnv.Program(target='s' + app, source=[app + '.C'])
