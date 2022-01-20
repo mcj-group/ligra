@@ -18,9 +18,9 @@ will work on both uncompressed and compressed graphs.
 
 Compilers
 
-* g++ &gt;= 4.8.0 with support for Cilk Plus
+* g++ &gt;= 5.3.0 with support for Cilk Plus
+* g++ &gt;= 5.3.0 with OpenMP
 * Intel icpc compiler
-* OpenMP
 
 To compile with g++ using Cilk Plus, define the environment variable
 CILK. To compile with icpc, define the environment variable MKLROOT
@@ -32,8 +32,7 @@ sure CILK, MKLROOT and OPENMP are not defined.
 
 Note: OpenMP support in Ligra has not been thoroughly tested. If you
 experience any errors, please send an email to [Julian
-Shun](mailto:jshun@eecs.berkeley.edu). A known issue is that OpenMP will not
-work correctly when using the experimental version of gcc 4.8.0.
+Shun](mailto:jshun@mit.edu).
 
 For processing compressed graph files, there are three compression
 schemes currently implemented that can be used---byte codes, byte
@@ -93,8 +92,8 @@ filenames, and for weighted graphs, the flag "-w" should be passed
 before the filenames. For example:
 
 ```
-$ ./encoder -s ../inputs/rMatGraph_J_5_100 inputs/rMatGraph_J_5_100.compressed
-$ ./encoder -s -w ../inputs/rMatGraph_WJ_5_100 inputs/rMatGraph_WJ_5_100.compressed
+$ ./encoder -s ../inputs/rMatGraph_J_5_100 ../inputs/rMatGraph_J_5_100.compressed
+$ ./encoder -s -w ../inputs/rMatGraph_WJ_5_100 ../inputs/rMatGraph_WJ_5_100.compressed
 ```
  
 After compressing the graphs, the applications can be run in the same
@@ -147,7 +146,8 @@ file stores in binary the offsets for the vertices in the CSR format
 the CSR format (the &lt;e>'s above).
 
 Weighted graphs: For format (1), the weights are listed at the end of
-the file (after &lt;e(m-1)>). For format (2), the weights
+the file (after &lt;e(m-1)>), and the first line of the file should
+store the string "WeightedAdjacencyGraph". For format (2), the weights
 are stored after all of the edge targets in the .adj file.
 
 By default, format (1) is used. To run an input with format (2), pass
@@ -201,7 +201,7 @@ $ ./gridGraph -d 3 10000000 3Dgrid_10000000
 ### Graph Converters
 
 **SNAPtoAdj** converts a graph in [SNAP
-format](snap.stanford.edu/data/index.html) and converts it to Ligra's
+format](http://snap.stanford.edu/data/index.html) and converts it to Ligra's
 adjacency graph format. The first required parameter is the input
 (SNAP) file name and second required parameter is the output (Ligra)
 file name. The "-s" flag may be used to symmetrize the input
@@ -332,7 +332,9 @@ a bitvector to mark visited vertices), **BC.C** (betweenness
 centrality), **Radii.C** (graph eccentricity estimation),
 **Components.C** (connected components), **BellmanFord.C**
 (Bellman-Ford shortest paths), **PageRank.C**, **PageRankDelta.C**,
-**BFSCC.C** (connected components based on BFS), **MIS.C** (maximal independent set), **KCore.C** (K-core decomposition), and *Triangle.C** (triangle counting).
+**BFSCC.C** (connected components based on BFS), **MIS.C** (maximal
+independent set), **KCore.C** (K-core decomposition), **Triangle.C**
+(triangle counting), and **CF.C** (collaborative filtering).
 
 
 Eccentricity Estimation 
@@ -364,19 +366,31 @@ the eccentricity estimate for vertex *i* on line *i*.
 
 Resources  
 -------- 
-Julian Shun and Guy Blelloch. [*Ligra: A
+Julian Shun and Guy E. Blelloch. [*Ligra: A
 Lightweight Graph Processing Framework for Shared
-Memory*](http://www.cs.cmu.edu/~jshun/ligra.pdf). Proceedings of the
+Memory*](https://people.csail.mit.edu/jshun/ligra.pdf). Proceedings of the
 ACM SIGPLAN Symposium on Principles and Practice of Parallel
 Programming (PPoPP), pp. 135-146, 2013.
 
-Julian Shun, Laxman Dhulipala and Guy Blelloch. [*Smaller and Faster:
+Julian Shun, Laxman Dhulipala, and Guy E. Blelloch. [*Smaller and Faster:
 Parallel Processing of Compressed Graphs with
-Ligra+*](http://www.cs.cmu.edu/~jshun/ligra+.pdf). Proceedings of the
+Ligra+*](http://people.csail.mit.edu/jshun/ligra+.pdf). Proceedings of the
 IEEE Data Compression Conference (DCC), pp. 403-412, 2015.
 
 Julian Shun. [*An Evaluation of Parallel Eccentricity Estimation
 Algorithms on Undirected Real-World
-Graphs*](http://www.cs.cmu.edu/~jshun/kdd-final.pdf). Proceedings of
+Graphs*](http://people.csail.mit.edu/jshun/kdd-final.pdf). Proceedings of
 the ACM SIGKDD Conference on Knowledge Discovery and Data Mining
-(KDD), 2015.
+(KDD), pp. 1095-1104, 2015.
+
+Julian Shun, Farbod Roosta-Khorasani, Kimon Fountoulakis, and Michael
+W.  Mahoney. [*Parallel Local Graph
+Clustering*](http://people.csail.mit.edu/jshun/local.pdf). Proceedings
+of the International Conference on Very Large Data Bases (VLDB),
+9(12), pp. 1041-1052, 2016.
+
+Laxman Dhulipala, Guy E. Blelloch, and Julian Shun. [*Julienne: A
+Framework for Parallel Graph Algorithms using Work-efficient
+Bucketing*](https://people.csail.mit.edu/jshun/bucketing.pdf). Proceedings
+of the ACM Symposium on Parallelism in Algorithms and Architectures
+(SPAA), pp. 293-304, 2017.
