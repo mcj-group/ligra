@@ -38,7 +38,6 @@
 #include "graph.h"
 #include "IO.h"
 #include "parseCommandLine.h"
-#include "gettime.h"
 #include "index_map.h"
 #include "edgeMap_utils.h"
 using namespace std;
@@ -52,6 +51,8 @@ const flags sparse_no_filter = 4;
 const flags dense_forward = 8;
 const flags dense_parallel = 16;
 const flags remove_duplicates = 32;
+const flags no_dense = 64;
+const flags edge_parallel = 128;
 inline bool should_output(const flags& fl) { return !(fl & no_output); }
 
 template <class data, class vertex, class VS, class F>
@@ -240,22 +241,27 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
     cout << "edgeMap: Sizes Don't match" << endl;
     abort();
   }
-  if (vs.size() == 0) return vertexSubsetData<data>(numVertices);
-  vs.toSparse();
-  uintT* degrees = newA(uintT, m);
-  vertex* frontierVertices = newA(vertex,m);
-  {parallel_for (size_t i=0; i < m; i++) {
-    uintE v_id = vs.vtx(i);
-    vertex v = G[v_id];
-    degrees[i] = v.getOutDegree();
-    frontierVertices[i] = v;
-  }}
-
-  uintT outDegrees = sequence::plusReduce(degrees, m);
-  if (outDegrees == 0) return vertexSubsetData<data>(numVertices);
-  if (m + outDegrees > threshold) {
+  if (m == 0) return vertexSubsetData<data>(numVertices);
+  uintT* degrees = NULL;
+  vertex* frontierVertices = NULL;
+  uintT outDegrees = 0;
+  if(threshold > 0) { //compute sum of out-degrees if threshold > 0
+    vs.toSparse();
+    degrees = newA(uintT, m);
+    frontierVertices = newA(vertex,m);
+    {parallel_for (size_t i=0; i < m; i++) {
+	uintE v_id = vs.vtx(i);
+	vertex v = G[v_id];
+	degrees[i] = v.getOutDegree();
+	frontierVertices[i] = v;
+      }}
+    outDegrees = sequence::plusReduce(degrees, m);
+    if (outDegrees == 0) return vertexSubsetData<data>(numVertices);
+  }
+  if (!(fl & no_dense) && m + outDegrees > threshold) {
+    if(degrees) free(degrees);
+    if(frontierVertices) free(frontierVertices);
     vs.toDense();
-    free(degrees); free(frontierVertices);
     return (fl & dense_forward) ?
       edgeMapDenseForward<data, vertex, VS, F>(GA, vs, f, fl) :
       edgeMapDense<data, vertex, VS, F>(GA, vs, f, fl);
@@ -271,7 +277,7 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
 
 // Regular edgeMap, where no extra data is stored per vertex.
 template <class vertex, class VS, class F>
-vertexSubset edgeMap(graph<vertex> GA, VS& vs, F f,
+vertexSubset edgeMap(graph<vertex>& GA, VS& vs, F f,
     intT threshold = -1, const flags& fl=0) {
   return edgeMapData<pbbs::empty>(GA, vs, f, threshold, fl);
 }
@@ -460,6 +466,9 @@ inline bool cond_true (intT d) { return 1; }
 template<class vertex>
 void Compute(graph<vertex>&, commandLine);
 
+template<class vertex>
+void Compute(hypergraph<vertex>&, commandLine);
+
 int parallel_main(int argc, char* argv[]) {
   commandLine P(argc,argv," [-s] <inFile>");
   char* iFile = P.getArgument(0);
@@ -471,8 +480,14 @@ int parallel_main(int argc, char* argv[]) {
   long rounds = P.getOptionLongValue("-rounds",3);
   if (compressed) {
     if (symmetric) {
+#ifndef HYPER
       graph<compressedSymmetricVertex> G =
         readCompressedGraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
+#else
+      hypergraph<compressedSymmetricVertex> G =
+        readCompressedHypergraph<compressedSymmetricVertex>(iFile,symmetric,mmap); //symmetric graph
+#endif
+      Compute(G,P);
       for(int r=0;r<rounds;r++) {
         startTime();
         Compute(G,P);
@@ -480,8 +495,14 @@ int parallel_main(int argc, char* argv[]) {
       }
       G.del();
     } else {
+#ifndef HYPER
       graph<compressedAsymmetricVertex> G =
         readCompressedGraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
+#else
+      hypergraph<compressedAsymmetricVertex> G =
+        readCompressedHypergraph<compressedAsymmetricVertex>(iFile,symmetric,mmap); //asymmetric graph
+#endif
+      Compute(G,P);
       if(G.transposed) G.transpose();
       for(int r=0;r<rounds;r++) {
         startTime();
@@ -493,8 +514,14 @@ int parallel_main(int argc, char* argv[]) {
     }
   } else {
     if (symmetric) {
+#ifndef HYPER
       graph<symmetricVertex> G =
         readGraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+#else
+      hypergraph<symmetricVertex> G =
+        readHypergraph<symmetricVertex>(iFile,compressed,symmetric,binary,mmap); //symmetric graph
+#endif
+      Compute(G,P);
       for(int r=0;r<rounds;r++) {
         startTime();
         Compute(G,P);
@@ -502,8 +529,14 @@ int parallel_main(int argc, char* argv[]) {
       }
       G.del();
     } else {
+#ifndef HYPER
       graph<asymmetricVertex> G =
         readGraph<asymmetricVertex>(iFile,compressed,symmetric,binary,mmap); //asymmetric graph
+#else
+      hypergraph<asymmetricVertex> G =
+        readHypergraph<asymmetricVertex>(iFile,compressed,symmetric,binary,mmap); //asymmetric graph
+#endif
+      Compute(G,P);
       if(G.transposed) G.transpose();
       for(int r=0;r<rounds;r++) {
         startTime();

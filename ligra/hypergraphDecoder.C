@@ -50,6 +50,7 @@
 #include "graph.h"
 #include "parseCommandLine.h"
 #include "IO.h"
+#include "hypergraphIO.h"
 using namespace std;
 
 struct printAdjT {
@@ -74,12 +75,11 @@ struct printWghT {
   }
 };
 
-void writeAdjGraph(graph<compressedSymmetricVertex> G, ofstream *of, bool weighted) {
-  compressedSymmetricVertex *V = G.V;
-  for (long i = 0; i < G.n; i++) {
+void writeAdjHypergraph(compressedSymmetricVertex* G, long n, ofstream *of, bool weighted) {
+  for (long i = 0; i < n; i++) {
     stringstream ss;
-    uchar *nghArr = V[i].getOutNeighbors();
-    uintT d = V[i].getOutDegree();
+    uchar *nghArr = G[i].getOutNeighbors();
+    uintT d = G[i].getOutDegree();
     if(weighted)
       decodeWgh(printAdjT(&ss), nghArr, i, d);
     else
@@ -88,10 +88,10 @@ void writeAdjGraph(graph<compressedSymmetricVertex> G, ofstream *of, bool weight
   }
   if(weighted) {
     cout << "writing weights..." << endl;
-    for (long i = 0; i < G.n; i++) {
+    for (long i = 0; i < n; i++) {
       stringstream ss;
-      uchar *nghArr = V[i].getOutNeighbors();
-      uintT d = V[i].getOutDegree();
+      uchar *nghArr = G[i].getOutNeighbors();
+      uintT d = G[i].getOutDegree();
       decodeWgh(printWghT(&ss), nghArr, i, d);
       *of << ss.str();    
     }
@@ -107,22 +107,35 @@ int parallel_main(int argc, char* argv[]) {
   char* iFile = P.getArgument(1);
   char* oFile = P.getArgument(0);
   bool weighted = P.getOptionValue("-w");
-  graph<compressedSymmetricVertex> G = readCompressedGraph<compressedSymmetricVertex>(iFile,1,0);
-  long n = G.n, m = G.m;
+  bool sym = P.getOptionValue("-s");
+  hypergraph<compressedSymmetricVertex> G = readCompressedHypergraph<compressedSymmetricVertex>(iFile,sym,0);
+  long nv = G.nv, mv = G.mv, nh = G.nh, mh = G.mh;
 
   ofstream out(oFile,ofstream::out);
-  if(weighted) out << "WeightedAdjacencyGraph\n" << n << endl << m << endl;
-  else out << "AdjacencyGraph\n" << n << endl << m << endl;
-  cout<<"writing offsets..."<<endl;
-  uintT* DegreesSum = newA(uintT,n);
-  parallel_for(long i=0;i<n;i++) DegreesSum[i] = G.V[i].getOutDegree();
-  sequence::plusScan(DegreesSum,DegreesSum,n);
-  stringstream ss;
+  if(weighted) out << "WeightedAdjacencyHypergraph\n" << nv << endl << mv << endl << nh << endl << mh << endl;
+  else out << "AdjacencyHypergraph\n" << nv << endl << mv << endl << nh << endl << mh << endl;
+  cout<<"writing offsetsV..."<<endl;
+  uintT* DegreesSumV = newA(uintT,nv);
+  parallel_for(long i=0;i<nv;i++) DegreesSumV[i] = G.V[i].getOutDegree();
+  sequence::plusScan(DegreesSumV,DegreesSumV,nv);
+  stringstream ssV;
   setWorkers(1); //writing sequentially to file
-  for(long i=0;i<n;i++) ss << DegreesSum[i] << endl;
-  free(DegreesSum);
-  out << ss.str();
-  cout << "writing edges..."<<endl;
-  writeAdjGraph(G,&out,weighted);
+  for(long i=0;i<nv;i++) ssV << DegreesSumV[i] << endl;
+  free(DegreesSumV);
+  out << ssV.str();
+  cout << "writing edgesV..."<<endl;
+  writeAdjHypergraph(G.V,nv,&out,weighted);
+
+  cout << "writing offsetsH..."<<endl;
+  uintT* DegreesSumH = newA(uintT,nh);
+  parallel_for(long i=0;i<nh;i++) DegreesSumH[i] = G.H[i].getOutDegree();
+  sequence::plusScan(DegreesSumH,DegreesSumH,nh);
+  stringstream ssH;
+  for(long i=0;i<nh;i++) ssH << DegreesSumH[i] << endl;
+  free(DegreesSumH);
+  out << ssH.str();
+  cout << "writing edgesH..."<<endl;
+  writeAdjHypergraph(G.H,nh,&out,weighted);
+  cout << "done\n";
   out.close();
 }
