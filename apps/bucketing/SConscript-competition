@@ -3,11 +3,18 @@ Import('parallelEnv')
 # TODO(mcj) add nativeEnv as in pbbs to facilitate simulator-free debugging
 
 apps = [
-        "KCore",
-        ]
+    "KCore",
+]
 
-envs = [serialEnv, parallelEnv]
+serialOnlyApps = [
+    "KCoreSerial",
+]
 
-for env in envs:
+for env in [serialEnv, parallelEnv]:
     for app in apps:
         env.Program(target=app, source=[app + '.C'])
+
+for app in serialOnlyApps:
+    # [mcj] Due to the PROGPREFIX in ligra/SConscript, the app name will
+    # redundantly be prepended with 's', but oh well
+    serialEnv.Program(target=app, source=[app + '.C'])
