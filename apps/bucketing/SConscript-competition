@@ -1,0 +1,13 @@
+Import('serialEnv')
+Import('parallelEnv')
+# TODO(mcj) add nativeEnv as in pbbs to facilitate simulator-free debugging
+
+apps = [
+        "KCore",
+        ]
+
+envs = [serialEnv, parallelEnv]
+
+for env in envs:
+    for app in apps:
+        env.Program(target=app, source=[app + '.C'])
