@@ -1,69 +1,26 @@
-Import('env', 'runtime')
-env = env.Clone()
+Import('fgEnv', 'cgEnv')
 
-# Just as with pbbs, this suite is riddled with warnings.
-env.Append(CPPFLAGS = ['-Wno-all'])
-# Several ligra apps (e.g. CF) can't handle gcc's -ftree-loop-vectorize pass,
-# which comes with -O3. This manifests in segfaults. Fortunately clang doesn't
-# accept that flag, so we don't need to disable it.
-if not GetOption('clang'): env.Append(CPPFLAGS = ['-fno-tree-loop-vectorize'])
+# [mcj] Note that the equivalent Makefile only conditionally defines
+# these flags. Are we sure we want 64- or 32-bit values/weights?
+# TODO document why these should be enabled in Julienne but not Ligra
+# TODO decide about -DPD -DBYTE -DNIBBLE
+fgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
+cgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
 
-# [mcj] The applications won't build with the following defined.
-# So I guess we're using 32-bit integers
-# [gp] KCore builds fine with them
-env.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
-# TODO decide about -DPD -DBYTE -DNIBBLE  -DBYTERLE
+apps = [
+        "KCore"
+        ]
 
-if runtime != "competition":
-    apps = [
-            "KCore"
-            ]
+cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
+fgCompEnv = fgEnv.Clone()
+fgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
+fgCompEnv['PROGSUFFIX'] = '_fg_comp'
+fgCompEnv['OBJSUFFIX'] = '.fgco'
+cgCompEnv = cgEnv.Clone()
+cgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
+cgCompEnv['PROGSUFFIX'] = '_cg_comp'
+cgCompEnv['OBJSUFFIX'] = '.cgco'
 
-    env = env.Clone()
-    env.Append(CPPDEFINES = ["CAN_USE_SWARM_API"])
-    # Imitate the default Ligra parallelization strategy: use coarse grain inner
-    # loops for vertices with degree less than one thousand.
-    cgEnv = env.Clone()
-    cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
-    cgEnv['PROGSUFFIX'] = '_cg'
-    cgEnv['OBJSUFFIX'] = '.cgo'
-    fgEnv = env.Clone()
-    fgEnv['PROGSUFFIX'] = '_fg'
-    fgEnv['OBJSUFFIX'] = '.fgo'
-    fgCompEnv = env.Clone()
-    fgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
-    fgCompEnv['PROGSUFFIX'] = '_fg_comp'
-    fgCompEnv['OBJSUFFIX'] = '.fgco'
-    cgCompEnv = env.Clone()
-    cgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE', 'COARSE_GRAIN'])
-    cgCompEnv['PROGSUFFIX'] = '_cg_comp'
-    cgCompEnv['OBJSUFFIX'] = '.cgco' 
-
-    for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv]:
-        for app in apps:
-            env.Program(target='pls' + app, source=[app + '_pls.C'])
-
-
-else:
-
-    apps = [
-            "KCore",
-            ]
-
-    serialEnv = env.Clone()
-    parallelEnv = env.Clone()
-    serialEnv['OBJSUFFIX'] = '.os'
-    parallelEnv['OBJSUFFIX'] = '.op'
-
-    hasCilk = False
-    if not GetOption('no_exec'):
-        conf = parallelEnv.Configure()
-        hasCilk = conf.CheckLibWithHeader('cilkrts', 'cilk/cilk.h', 'c')
-        parallelEnv = conf.Finish()
-    if GetOption('no_exec') or hasCilk:
-        parallelEnv.Append(CPPFLAGS = ['-fcilkplus'])
-        parallelEnv.Append(CPPDEFINES = ['CILK'])
-        for app in apps:
-            parallelEnv.Program(target='p' + app, source=[app + '.C'])
+for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv]:
     for app in apps:
-        serialEnv.Program(target='s' + app, source=[app + '.C'])
+        env.Program(target='pls' + app, source=[app + '_pls.C'])
