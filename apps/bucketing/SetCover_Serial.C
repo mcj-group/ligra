@@ -3,12 +3,28 @@
 #include "bucket.h"
 #include "edgeMapReduce.h"
 
+#include "swarm/hooks.h"
+
 template <class vertex>
 void SetCover(graph<vertex>& G, size_t num_buckets=128) {
     timer t; t.start();
 
+
     size_t n = G.n, m = G.m;
-    auto D = array_imap<uintE>(G.n, [&] (size_t i) { return G.V[i].getOutDegree(); });
+    auto D = array_imap<uintE>(
+            G.n,
+            [&](size_t i) { return G.V[i].getOutDegree(); });
+
+    // TODO(mcj):
+    // 1) What is the difference between Ds below and D above? Aren't they both
+    // arrays with the same content?
+    // 2) Add a comment along the lines that the reason we add an auxiliary
+    // data structure for degrees, rather than just use G.V[i].getOutDegree(),
+    // is that the alorithm needs to reduce the degree value, but we don't
+    // necessarily want to destroy the graph G itself. (Is that the idea?)
+    // 3) Verify what is the right spot for the zsim_roi_begin and end?
+
+    zsim_roi_begin();
 
     // find degrees
     int Ds[n] = {0}, coveringSet[n], coveringSetLen = 0;
@@ -37,6 +53,7 @@ void SetCover(graph<vertex>& G, size_t num_buckets=128) {
             }
         }
     }
+    zsim_roi_end();
 
     t.stop(); t.reportTotal("Running time: ");
     cout << "the covering set length is: " << coveringSetLen << endl;
