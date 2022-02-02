@@ -7,7 +7,9 @@ apps = [
 ]
 
 serialOnlyApps = [
+    # TODO(mcj) we should probably standardize on underscore or no underscore?
     "KCoreSerial",
+    "SetCover_Serial",
 ]
 
 for env in [serialEnv, parallelEnv]:
