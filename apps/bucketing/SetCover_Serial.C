@@ -5,47 +5,84 @@
 
 #include "swarm/hooks.h"
 
-#include <algorithm>
+#include <boost/heap/fibonacci_heap.hpp>
 #include <limits>
 #include <vector>
 
+// Inexplicably, this is how we make a max heap with the Boost fibonacci_heap
+// rather than std::greater. I don't get it...
+using PQElement = std::tuple<intE, uintE>;
+using PQ = boost::heap::fibonacci_heap<
+            PQElement,
+            boost::heap::compare<std::less<PQElement> >
+            >;
+
+static constexpr uintE THRESHOLD = 2;
+
 template <class vertex>
 void SetCover(graph<vertex>& G) {
+    static_assert(THRESHOLD >= 1, "We assume the degree threshold is positive");
+
     timer t; t.start();
 
     // TODO(mcj):
     // 1) Verify what is the right spot for the zsim_roi_begin and end?
 
-    // find degrees
     std::vector<uintE> coveringSet;
+
+    // Conceptually, Approx Set Cover repeatedly removes edges from vertices.
+    // We don't actually want to destroy the graph. Originally we used an
+    // auxiliary "current degree" vector. But since the algorithm wants to
+    // process each vertex in decreasing "current degree" order, let's
+    // (1) use a mergeable heap to priority vertices
+    // (2) exploit the priority (vertex degree) within the heap to provide the
+    // current degree, avoiding extra state.
+    PQ pq;
+    std::vector<PQ::handle_type> pqHandles;
+    std::vector<bool> inPQ; // Vertices with no more edges aren't in the PQ
+
     coveringSet.reserve(G.n);
+    inPQ.resize(G.n, false);
+    pqHandles.resize(G.n);
 
     zsim_roi_begin();
 
-    // Approx Set Cover repeatedly removes edges from vertices. We don't
-    // actually want to destroy the graph, so we use the following
-    // temporary/auxiliary structure to hold the "current" degree of each vertex
-    auto D = array_imap<intE>(
-            G.n,
-            [&](size_t i) -> intE { return G.V[i].getOutDegree(); });
 
-    intE md = std::numeric_limits<intE>::max();
-    while (md > 2) { // should add threshold here
-        // find biggest degree
-        intE* mdp = std::max_element(D.s, D.e);
-        md = *mdp;
-        uintE mdv = std::distance(D.s, mdp);
+    // Queue each vertex, prioritized by its current (initial) degree
+    for (size_t v = 0; v < G.n; v++) {
+        intE degree = G.V[v].getOutDegree();
+        if (degree > THRESHOLD) { // TODO(mcj) make the threshold configurable
+            auto handle = pq.push(std::make_tuple(degree, v));
+            pqHandles[v] = handle;
+            inPQ[v] = true;
+        }
+    }
+
+    while (!pq.empty()) {
+        // pop max-degree vertex
+        intE md;
+        uintE mdv;
+        std::tie(md, mdv) = pq.top();
+        pq.pop();
 
         coveringSet.push_back(mdv);
-        *mdp = -1;
-        D[mdv] = -1;
+        inPQ[mdv] = false;
+
         // delete set members from universe
         size_t d = G.V[mdv].getOutDegree();
         for (size_t av=0; av < d; av++) {
             uintE adj = G.V[mdv].getOutNeighbor(av);
-            if (D[adj] < 0) continue;
-            else if (D[adj] > 1) D[adj]--;
-            else D[adj] = -1;
+            if (!inPQ[adj]) continue;
+
+            auto& handle = pqHandles[adj];
+            intE degree = std::get<0>(*handle);
+            assert(adj == std::get<1>(*handle));
+            if (degree > THRESHOLD) {
+                pq.decrease(handle, std::make_tuple(degree - 1, adj));
+            } else {
+                pq.erase(handle);
+                inPQ[adj] = false;
+            }
         }
     }
     zsim_roi_end();
