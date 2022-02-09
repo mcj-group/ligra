@@ -39,10 +39,8 @@ void SetCover(graph<vertex>& G) {
     // current degree, avoiding extra state.
     PQ pq;
     std::vector<PQ::handle_type> pqHandles;
-    std::vector<bool> inPQ; // Vertices with no more edges aren't in the PQ
 
     coveringSet.reserve(G.n);
-    inPQ.resize(G.n, false);
     pqHandles.resize(G.n);
 
     zsim_roi_begin();
@@ -51,11 +49,8 @@ void SetCover(graph<vertex>& G) {
     // Queue each vertex, prioritized by its current (initial) degree
     for (size_t v = 0; v < G.n; v++) {
         intE degree = G.V[v].getOutDegree();
-        if (degree > THRESHOLD) { // TODO(mcj) make the threshold configurable
-            auto handle = pq.push(std::make_tuple(degree, v));
-            pqHandles[v] = handle;
-            inPQ[v] = true;
-        }
+        auto handle = pq.push(std::make_tuple(degree, v));
+        pqHandles[v] = handle;
     }
 
     while (!pq.empty()) {
@@ -63,25 +58,22 @@ void SetCover(graph<vertex>& G) {
         intE md;
         uintE mdv;
         std::tie(md, mdv) = pq.top();
-        pq.pop();
 
+        if (md <= THRESHOLD) break; // TODO(mcj) make the threshold configurable
+
+        pq.decrease(pqHandles[mdv], std::make_tuple(-1, mdv));
         coveringSet.push_back(mdv);
-        inPQ[mdv] = false;
 
         // delete set members from universe
         size_t d = G.V[mdv].getOutDegree();
         for (size_t av=0; av < d; av++) {
             uintE adj = G.V[mdv].getOutNeighbor(av);
-            if (!inPQ[adj]) continue;
-
             auto& handle = pqHandles[adj];
             intE degree = std::get<0>(*handle);
             assert(adj == std::get<1>(*handle));
-            if (degree > THRESHOLD) {
-                pq.decrease(handle, std::make_tuple(degree - 1, adj));
-            } else {
-                pq.erase(handle);
-                inPQ[adj] = false;
+            if (degree >= 0) {
+                intE newDegree = (degree > THRESHOLD) ? degree - 1 : -1;
+                pq.decrease(handle, std::make_tuple(newDegree, adj));
             }
         }
     }
