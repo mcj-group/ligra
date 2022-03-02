@@ -16,24 +16,40 @@ inline bool success(const graph<vertex>& G, const collection& cover) {
         if (!G.V[elem].getOutDegree()) isElemCovered[elem] = true;
     }
 
-    // Validate feasibility of the solution: are all elements at least covered?
-    // N.B. validating optimality is hard (this is NP comlete). Maybe we could
-    // check the H_n-approximate guarantee? But then we'd need to know the
-    // optimal solution...
+    // Validate feasibility of the solution:
+    // 1) All elements should be covered by the set cover
+    // 2) No set in the cover should be redundant (i.e. all its elements are
+    //    already covered)
+    // 3) N.B. validating optimality is hard (this is NP comlete). Maybe we
+    //    could check the H_n-approximate guarantee? But then we'd need to know
+    //    the optimal solution...
+    std::vector<uint64_t> redundantSets;
     for (auto s : cover) {
         size_t sD = G.V[s].getOutDegree();
+        bool redundant = true;
         for (size_t i = 0; i < sD; i++) {
-            isElemCovered[G.V[s].getOutNeighbor(i)] = true;
+            size_t elem = G.V[s].getOutNeighbor(i);
+            if (!isElemCovered[elem]) {
+                redundant = false;
+                isElemCovered[elem] = true;
+            }
         }
+        if (redundant) redundantSets.push_back(s);
     }
 
     auto isTrue = [] (bool b) { return b; };
     bool ec = std::all_of(isElemCovered.begin(), isElemCovered.end(), isTrue);
     bool size = cover.size() <= G.n;
+    bool red = !redundantSets.empty();
     if (!ec) std::cerr << "ERROR: not all elements were covered" << std::endl;
     if (!size) std::cerr << "ERROR: the subcover was too large" << std::endl;
-    if (ec && size) std::cout << "Validation succeeded" << std::endl;
-    return ec && size;
+    if (red) {
+        std::cerr << "ERROR: found redundant sets in the cover: " << std::endl;
+        for (auto s : redundantSets) std::cerr << s << std::endl;
+    }
+    bool success = (ec && size && !red);
+    if (success) std::cout << "Validation succeeded" << std::endl;
+    return success;
 }
 
 }
