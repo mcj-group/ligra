@@ -125,6 +125,51 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 
 
 template <class vertex>
+static inline void addSetCG(swarm::Timestamp ts, uintE s) {
+    // FIXME the CG version doesn't need to break ties for equal-cardinality,
+    // so this is unnecessarily deterministic
+    if (cardinality(ts) > cardinalities[s]) {
+        // This task instance is too early given the now-lower |s|
+        if (cardinalities[s]) {
+            // So re-enqueue with the correct timestamp for |s|.
+            ts = timestamp(cardinalities[s], s);
+            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK);
+            swarm::enqueue(addSetCG<vertex>, ts, flags, s);
+        }
+        return;
+    }
+
+    DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
+          s, cardinalities[s], V<vertex>(s).getOutDegree());
+
+    // FIXME(mcj) should the cover data structure just be a bit vector that
+    // we then collapse at the end?
+    cover[s] = s;
+    // s and all its elements are now covered, so reset s's effective
+    // cardinality to filter away all other tasks for s.
+    cardinalities[s] = 0;
+
+    // Delete Set v's member Elements from other Sets
+    const vertex& vs = V<vertex>(s);
+    size_t sD = vs.getOutDegree();
+    for (size_t i = 0; i < sD; i++) {
+        uintE elem = vs.getOutNeighbor(i);
+        if (isElemCovered.test(elem)) continue;
+        isElemCovered.set(elem, true);
+
+        const vertex& ve = V<vertex>(elem);
+        size_t elemD = ve.getOutDegree();
+        for (size_t j = 0; j < elemD; j++) {
+            uintE s1 = ve.getOutNeighbor(j);
+            if (s1 != s) {
+                cardinalities[s1]--;
+            }
+        }
+    }
+}
+
+
+template <class vertex>
 void SetCover(graph<vertex>& G) {
     vertices = G.V;
     cover.resize(G.n);
@@ -158,7 +203,13 @@ void SetCover(graph<vertex>& G) {
         sortedSets.end(),
         [] (swarm::Timestamp ts) {
             uintE s = set(ts);
-            swarm::enqueue(addSet<vertex>, ts, hint(s), s);
+            swarm::enqueue(
+#ifdef COARSE_GRAIN
+                           addSetCG<vertex>,
+#else
+                           addSet<vertex>,
+#endif
+                           ts, hint(s), s);
         },
         [] (swarm::Timestamp ts) { return ts; },
         [] (swarm::Timestamp) -> swarm::Hint { return EnqFlags::NOHINT; }
