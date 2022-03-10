@@ -64,9 +64,16 @@ static inline void removeFromSet(swarm::Timestamp ts, uintE s);
 
 template <class vertex>
 static inline void addSet(swarm::Timestamp ts, uintE s) {
-    // TODO(mcj) could we make the addSet enqueue the correctly timestamped
-    // version?
-    if (cardinality(ts) > cardinalities[s]) return;
+    if (cardinality(ts) > cardinalities[s]) {
+        // This task instance is too early given the now-lower |s|
+        if (cardinalities[s]) {
+            // So re-enqueue with the correct timestamp for |s|.
+            ts = timestamp(cardinalities[s], s);
+            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK);
+            swarm::enqueue(addSet<vertex>, ts, flags, s);
+        }
+        return;
+    }
 
     DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
           s, cardinalities[s], V<vertex>(s).getOutDegree());
@@ -119,10 +126,6 @@ static inline void removeFromSet(swarm::Timestamp, uintE s) {
     uintE card = cardinalities[s];
     assert(card);
     cardinalities[s] -= 1;
-    if (card > 1) {
-        swarm::Timestamp ts = timestamp(cardinalities[s], s);
-        swarm::enqueue(addSet<vertex>, ts, hint(s), s);
-    }
 }
 
 
