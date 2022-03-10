@@ -11,6 +11,7 @@ apps = [
         # file isn't here.
         # TODO uncomment once priority updates are merged into main
         #"KCore"
+        "SetCover"
         ]
 
 cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
