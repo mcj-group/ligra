@@ -94,15 +94,17 @@ void SetCover(graph<vertex>& G) {
         isSetCovered[s] = true;
 
         // Delete Set v's member Elements from other Sets
-        size_t sD = G.V[s].getOutDegree();
+        const vertex& vs = G.V[s];
+        size_t sD = vs.getOutDegree();
         for (size_t i = 0; i < sD; i++) {
-            uintE elem = G.V[s].getOutNeighbor(i);
+            uintE elem = vs.getOutNeighbor(i);
             if (isElemCovered[elem]) continue;
             isElemCovered[elem] = true;
 
-            size_t elemD = G.V[elem].getOutDegree();
+            const vertex& ve = G.V[elem];
+            size_t elemD = ve.getOutDegree();
             for (size_t j = 0; j < elemD; j++) {
-                uintE s1 = G.V[elem].getOutNeighbor(j);
+                uintE s1 = ve.getOutNeighbor(j);
                 if (s1 == s) continue;
 
                 assert(!isSetCovered[s1]); // Otherwise elem should be covered
