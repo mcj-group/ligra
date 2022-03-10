@@ -107,7 +107,7 @@ void SetCover(graph<vertex>& G) {
                 uintE s1 = ve.getOutNeighbor(j);
                 if (s1 == s) continue;
 
-                assert(!isSetCovered[s1]); // Otherwise elem should be covered
+                // assert(!isSetCovered[s1]); // Otherwise elem should be covered
                 auto& handle = pqHandles[s1];
                 uintE card = std::get<0>(*handle);
                 assert(s1 == std::get<1>(*handle));
