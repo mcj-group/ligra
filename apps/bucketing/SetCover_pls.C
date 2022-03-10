@@ -59,10 +59,6 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uint64_t elem);
 
 
 template <class vertex>
-static inline void removeFromSet(swarm::Timestamp ts, uintE s);
-
-
-template <class vertex>
 static inline void addSet(swarm::Timestamp ts, uintE s) {
     if (cardinality(ts) > cardinalities[s]) {
         // This task instance is too early given the now-lower |s|
@@ -102,6 +98,12 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 
 
 template <class vertex>
+static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
+    (*cptr)--;
+}
+
+
+template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
     if (isElemCovered.test(elem)) return;
     isElemCovered.set(elem, true);
@@ -114,18 +116,11 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
         [s,&ve] (swarm::Timestamp ts, uintE j) {
             uintE s1 = ve.getOutNeighbor(j);
             if (s1 != s) {
-                swarm::enqueue(removeFromSet<vertex>, ts, hint(s1), s1);
+                uintE* cptr = &cardinalities[s1];
+                swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), cptr);
             }
         },
         ts);
-}
-
-
-template <class vertex>
-static inline void removeFromSet(swarm::Timestamp, uintE s) {
-    uintE card = cardinalities[s];
-    assert(card);
-    cardinalities[s] -= 1;
 }
 
 
