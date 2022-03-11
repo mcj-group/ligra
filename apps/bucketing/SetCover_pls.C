@@ -223,8 +223,6 @@ void SetCover(graph<vertex>& G) {
     size_t invalids = std::count(cover.begin(), cover.end(), INVALID);
     cover.resize(cover.size() - invalids);
 
-    cout << "the covering set length is: " << cover.size() << endl;
-
     if (!setcover::success<vertex>(G, cover)) std::abort();
 }
 

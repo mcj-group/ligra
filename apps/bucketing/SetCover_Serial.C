@@ -125,8 +125,6 @@ void SetCover(graph<vertex>& G) {
     zsim_roi_end();
 
     t.stop(); t.reportTotal("Running time: ");
-    cout << "the covering set length is: " << cover.size() << endl;
-
     if (!setcover::success<vertex>(G, cover)) std::abort();
 }
 

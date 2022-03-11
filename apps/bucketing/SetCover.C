@@ -2,6 +2,7 @@
 #include "index_map.h"
 #include "bucket.h"
 #include "edgeMapReduce.h"
+#include "SetCover.h"
 
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE COVERED = ((uintE)INT_E_MAX) - 1;
@@ -68,7 +69,10 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     // elements as covered. Sets that didn't reset any acquired elements)
     auto reset_f = [&] (const uintE& u, const uintE& v) -> bool {
       if (Elms[v] == u) {
-        if (D(u) & TOP_BIT) Elms[v] = COVERED;
+        if (D(u) & TOP_BIT) {
+            std::cout << "Covering elem " << v << " by set " << u << endl;
+            Elms[v] = COVERED;
+        }
         else Elms[v] = UINT_E_MAX;
       } return false;
     };
@@ -92,10 +96,11 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
 
   auto elm_cov = make_in_imap<uintE>(G.n, [&] (uintE v) { return (uintE)(Elms[v] == COVERED); });
   size_t elms_cov = pbbs::reduce_add(elm_cov);
-  cout << "|V| = " << G.n << " |E| = " << G.m << endl;
-  cout << "|cover|: " << cover.size << endl;
   cout << "Rounds: " << rounds << endl;
   cout << "Num_uncovered = " << (G.n - elms_cov) << endl;
+  std::vector<std::reference_wrapper<uintE>> cover_ref(cover.A,
+                                                       cover.A + cover.size);
+  if (!setcover::success<vertex>(G, cover_ref)) std::abort();
   return cover;
 }
 
