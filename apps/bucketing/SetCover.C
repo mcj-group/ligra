@@ -4,6 +4,8 @@
 #include "edgeMapReduce.h"
 #include "SetCover.h"
 
+#include "swarm/hooks.h"
+
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE COVERED = ((uintE)INT_E_MAX) - 1;
 constexpr double epsilon = 0.01;
@@ -25,6 +27,9 @@ struct Visit_Elms {
 template <class vertex>
 dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
   timer t; t.start();
+
+  zsim_roi_begin();
+
   auto Elms = array_imap<uintE>(G.n, [&] (size_t i) { return UINT_E_MAX; });
   auto D = array_imap<uintE>(G.n, [&] (size_t i) { return G.V[i].getOutDegree(); });
   auto get_bucket_clamped = [&] (size_t deg) -> uintE { return (deg == 0) ? UINT_E_MAX : (uintE)floor(x * log((double) deg)); };
@@ -69,10 +74,7 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     // elements as covered. Sets that didn't reset any acquired elements)
     auto reset_f = [&] (const uintE& u, const uintE& v) -> bool {
       if (Elms[v] == u) {
-        if (D(u) & TOP_BIT) {
-            std::cout << "Covering elem " << v << " by set " << u << endl;
-            Elms[v] = COVERED;
-        }
+        if (D(u) & TOP_BIT) Elms[v] = COVERED;
         else Elms[v] = UINT_E_MAX;
       } return false;
     };
@@ -92,6 +94,7 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     active.del(); still_active.del();
     rounds++;
   }
+  zsim_roi_end();
   t.stop(); t.reportTotal("Running time: ");
 
   auto elm_cov = make_in_imap<uintE>(G.n, [&] (uintE v) { return (uintE)(Elms[v] == COVERED); });
