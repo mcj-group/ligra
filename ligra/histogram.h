@@ -47,6 +47,7 @@ namespace pbbs {
     }
     hist_table() {}
 
+    //size needs to be a power of 2
     void resize(size_t req_size) {
       if (req_size > size) {
         free(table);
@@ -67,8 +68,9 @@ namespace pbbs {
   template <class E, class O, class K, class V, class A, class Reduce, class Apply>
   inline pair<size_t, O*> seq_histogram_reduce(A& get_elm, size_t n, Reduce& reduce_f, Apply& apply_f, hist_table<K, V>& ht) {
     typedef tuple<K, V> KV;
-    ht.resize(n);
-    sequentialHT<K, V> S(ht.table, n, 1.0f, ht.empty);
+    long size = 1L << pbbs::log2_up(n+1);
+    ht.resize(size);
+    sequentialHT<K, V> S(ht.table, size, 1.0f, ht.empty);
     for (size_t i=0; i<n; i++) {
       E a = get_elm(i);
       reduce_f(S, a);
@@ -97,7 +99,7 @@ namespace pbbs {
 
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_buckets = (size_t) (n < 20000000) ? (sqrt/10) : sqrt;
-    num_buckets = std::max(1 << log2_up(num_buckets), 1);
+    num_buckets = std::max(1L << log2_up(num_buckets), 1L);
     num_buckets = min(num_buckets, _hist_max_buckets);
     size_t bits = log2_up(num_buckets);
 
@@ -143,7 +145,7 @@ namespace pbbs {
       size_t size = bkt_counts[i*S_STRIDE];
       size_t ht_size = 0;
       if (size > 0) {
-        ht_size = 1 << pbbs::log2_up((intT)(size + 1));
+        ht_size = 1L << pbbs::log2_up((intT)(size + 1));
       }
       ht_offs[i+1] = ht_offs[i] + ht_size;
     }

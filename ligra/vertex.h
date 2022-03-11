@@ -204,12 +204,13 @@ symmetricVertex(intE* n, uintT d)
 #endif
 : neighbors(n), degree(d) {}
 #ifndef WEIGHTED
-  uintE* getInNeighbors() { return neighbors; }
-  const uintE* getInNeighbors() const { return neighbors; }
-  uintE* getOutNeighbors() { return neighbors; }
-  const uintE* getOutNeighbors() const { return neighbors; }
+  uintE* getInNeighbors () { return neighbors; }
+  const uintE* getInNeighbors () const { return neighbors; }
+  uintE* getOutNeighbors () { return neighbors; }
+  const uintE* getOutNeighbors () const { return neighbors; }
   uintE getInNeighbor(uintT j) const { return neighbors[j]; }
   uintE getOutNeighbor(uintT j) const { return neighbors[j]; }
+
   void setInNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
   void setOutNeighbor(uintT j, uintE ngh) { neighbors[j] = ngh; }
   void setInNeighbors(uintE* _i) { neighbors = _i; }
@@ -297,10 +298,10 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
 #endif
 : inNeighbors(iN), outNeighbors(oN), inDegree(id), outDegree(od) {}
 #ifndef WEIGHTED
-  uintE* getInNeighbors() { return inNeighbors; }
-  const uintE* getInNeighbors() const { return inNeighbors; }
-  uintE* getOutNeighbors() { return outNeighbors; }
-  const uintE* getOutNeighbors() const { return outNeighbors; }
+  uintE* getInNeighbors () { return inNeighbors; }
+  const uintE* getInNeighbors () const { return inNeighbors; }
+  uintE* getOutNeighbors () { return outNeighbors; }
+  const uintE* getOutNeighbors () const { return outNeighbors; }
   uintE getInNeighbor(uintT j) const { return inNeighbors[j]; }
   uintE getOutNeighbor(uintT j) const { return outNeighbors[j]; }
   void setInNeighbor(uintT j, uintE ngh) { inNeighbors[j] = ngh; }
@@ -308,10 +309,10 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
   void setInNeighbors(uintE* _i) { inNeighbors = _i; }
   void setOutNeighbors(uintE* _i) { outNeighbors = _i; }
 #else
-  intE* getInNeighbors() { return inNeighbors; }
-  const intE* getInNeighbors() const { return inNeighbors; }
-  intE* getOutNeighbors() { return outNeighbors; }
-  const intE* getOutNeighbors() const { return outNeighbors; }
+  intE* getInNeighbors () { return inNeighbors; }
+  const intE* getInNeighbors () const { return inNeighbors; }
+  intE* getOutNeighbors () { return outNeighbors; }
+  const intE* getOutNeighbors () const { return outNeighbors; }
   intE getInNeighbor(uintT j) const { return inNeighbors[2*j]; }
   intE getOutNeighbor(uintT j) const { return outNeighbors[2*j]; }
   intE getInWeight(uintT j) const { return inNeighbors[2*j+1]; }
