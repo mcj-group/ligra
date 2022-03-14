@@ -4,6 +4,7 @@ Import('parallelEnv')
 
 apps = [
     "KCore",
+    "SetCover",
 ]
 
 serialOnlyApps = [

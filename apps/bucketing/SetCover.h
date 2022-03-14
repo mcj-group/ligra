@@ -10,10 +10,15 @@ namespace setcover {
 
 template <class vertex, class collection>
 inline bool success(const graph<vertex>& G, const collection& cover) {
+    std::cout << "|V| = " << G.n << " |E| = " << G.m << std::endl;
+    std::cout << "|cover|: " << cover.size() << std::endl;
+
     std::vector<bool> isElemCovered(G.n, false);
-    // Handle disconnected graphs, just in case
+    // Handle directed graphs: a vertex with no incoming edges will translate to
+    // an element in no set. This isn't really the spirit of set cover, as the
+    // union of all sets should equal the universe. Just mark it covered.
     for (size_t elem = 0; elem < G.n; elem++) {
-        if (!G.V[elem].getOutDegree()) isElemCovered[elem] = true;
+        if (!G.V[elem].getInDegree()) isElemCovered[elem] = true;
     }
 
     // Validate feasibility of the solution:
@@ -38,14 +43,23 @@ inline bool success(const graph<vertex>& G, const collection& cover) {
     }
 
     auto isTrue = [] (bool b) { return b; };
-    bool ec = std::all_of(isElemCovered.begin(), isElemCovered.end(), isTrue);
+    auto it = std::find(isElemCovered.begin(), isElemCovered.end(), false);
+    bool ec = (it == isElemCovered.end());
     bool size = cover.size() <= G.n;
     bool red = !redundantSets.empty();
-    if (!ec) std::cerr << "ERROR: not all elements were covered" << std::endl;
+    if (!ec) {
+        std::cerr << "ERROR: element " << std::distance(isElemCovered.begin(), it)
+                  << " was not covered"
+                  << std::endl;
+    }
     if (!size) std::cerr << "ERROR: the subcover was too large" << std::endl;
     if (red) {
         std::cerr << "ERROR: found redundant sets in the cover: " << std::endl;
-        for (auto s : redundantSets) std::cerr << s << std::endl;
+        size_t count = 10;
+        for (auto s : redundantSets) {
+            std::cerr << s << std::endl;
+            if (count-- == 0) break;
+        }
     }
     bool success = (ec && size && !red);
     if (success) std::cout << "Validation succeeded" << std::endl;

@@ -2,6 +2,9 @@
 #include "index_map.h"
 #include "bucket.h"
 #include "edgeMapReduce.h"
+#include "SetCover.h"
+
+#include "swarm/hooks.h"
 
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE COVERED = ((uintE)INT_E_MAX) - 1;
@@ -24,6 +27,9 @@ struct Visit_Elms {
 template <class vertex>
 dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
   timer t; t.start();
+
+  zsim_roi_begin();
+
   auto Elms = array_imap<uintE>(G.n, [&] (size_t i) { return UINT_E_MAX; });
   auto D = array_imap<uintE>(G.n, [&] (size_t i) { return G.V[i].getOutDegree(); });
   auto get_bucket_clamped = [&] (size_t deg) -> uintE { return (deg == 0) ? UINT_E_MAX : (uintE)floor(x * log((double) deg)); };
@@ -88,14 +94,16 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     active.del(); still_active.del();
     rounds++;
   }
+  zsim_roi_end();
   t.stop(); t.reportTotal("Running time: ");
 
   auto elm_cov = make_in_imap<uintE>(G.n, [&] (uintE v) { return (uintE)(Elms[v] == COVERED); });
   size_t elms_cov = pbbs::reduce_add(elm_cov);
-  cout << "|V| = " << G.n << " |E| = " << G.m << endl;
-  cout << "|cover|: " << cover.size << endl;
   cout << "Rounds: " << rounds << endl;
   cout << "Num_uncovered = " << (G.n - elms_cov) << endl;
+  std::vector<std::reference_wrapper<uintE>> cover_ref(cover.A,
+                                                       cover.A + cover.size);
+  if (!setcover::success<vertex>(G, cover_ref)) std::abort();
   return cover;
 }
 
