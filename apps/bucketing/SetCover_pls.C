@@ -12,7 +12,7 @@
 #include <limits>
 #include <vector>
 
-#define DEBUG(args...) swarm::info(args)
+#define DEBUG(args...) //swarm::info(args)
 
 static constexpr uintE INVALID = std::numeric_limits<uintE>::max();
 #ifdef COMPETITIVE_SCHEDULE
@@ -133,7 +133,8 @@ static inline void decrementCardinality(swarm::Timestamp, uintE s) {
 #else
 template<class vertex>
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
-    DEBUG("decrement cardinality of set %u to %u", std::distance(&cardinalities[0], cptr), *cptr - 1);
+    DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
+    assert(*cptr > 0);
     (*cptr)--;
 }
 #endif
@@ -141,19 +142,20 @@ static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
 
 template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
-    DEBUG("Cover element %lu", elem);
+    DEBUG("Cover element %lu by set %lu, degree %u, currently %scovered", 
+            elem, s, V<vertex>(elem).getInDegree(), isElemCovered.test(elem) ? "" : "un");
 #ifndef COMPETITIVE_SCHEDULE
     if (isElemCovered.test(elem)) return;
     isElemCovered.set(elem, true);
 #endif
 
     const vertex& ve = V<vertex>(elem);
-    size_t elemD = ve.getOutDegree();
+    size_t elemD = ve.getInDegree();
     swarm::enqueue_all<EnqFlags::NOHINT>(
         swarm::u64it(0),
         swarm::u64it(elemD),
         [s,&ve] (swarm::Timestamp ts, uintE j) {
-            uintE s1 = ve.getOutNeighbor(j);
+            uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
 #ifdef COMPETITIVE_SCHEDULE
                 swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), s1);
