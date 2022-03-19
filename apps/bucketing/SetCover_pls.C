@@ -16,11 +16,14 @@
 
 static constexpr uintE INVALID = std::numeric_limits<uintE>::max();
 #ifdef COMPETITIVE_SCHEDULE
-static swarm::Scheduler<EnqFlags::UPDATEABLE, true> *sets;
+//static swarm::Scheduler<EnqFlags::UPDATEABLE, true> *sets;
 static swarm::Scheduler<EnqFlags::COMPETITIVE, false> *elements;
-#else
-static std::vector<uintE> cardinalities;
+#elif defined(HIVE_BASIC)
+static swarm::Scheduler<EnqFlags::UPDATEABLE, true> *elements;
 #endif
+//#else
+static std::vector<uintE> cardinalities;
+//#endif
 
 static std::vector<uintE> cover;
 static swarm::bitset isElemCovered;
@@ -49,7 +52,7 @@ constexpr uintE set(swarm::Timestamp ts) {
 
 
 static inline uint64_t hint(uintE set) {
-#ifdef COMPETITIVE_SCHEDULE
+#if defined(COMPETITIVE_SCHEDULE) || defined(HIVE_BASIC)
     return set;
 #else
     return swarm::Hint::cacheLine(&cardinalities[set]);
@@ -59,11 +62,11 @@ static inline uint64_t hint(uintE set) {
 
 template <class vertex>
 static inline void init(swarm::Timestamp, uintE s) {
-#ifdef COMPETITIVE_SCHEDULE
-    sets->set_base_ts(s, timestamp(V<vertex>(s).getOutDegree(), s));
-#else
+//#ifdef COMPETITIVE_SCHEDULE
+//  sets->set_base_ts(s, timestamp(V<vertex>(s).getOutDegree(), s));
+//#else
     cardinalities[s] = V<vertex>(s).getOutDegree();
-#endif
+//#endif
 }
 
 template <class vertex>
@@ -72,7 +75,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uint64_t elem);
 
 template <class vertex>
 static inline void addSet(swarm::Timestamp ts, uintE s) {
-#ifndef COMPETITIVE_SCHEDULE
+//#ifndef COMPETITIVE_SCHEDULE
     if (cardinality(ts) > cardinalities[s]) {
         // This task instance is too early given the now-lower |s|
         if (cardinalities[s]) {
@@ -83,7 +86,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
         }
         return;
     }
-#endif
+//#endif
 
     DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
           s, cardinality(ts), V<vertex>(s).getOutDegree());
@@ -93,22 +96,44 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
     cover[s] = s;
     // s and all its elements are now covered, so reset s's effective
     // cardinality to filter away all other tasks for s.
-#ifdef COMPETITIVE_SCHEDULE
-    sets->set_base_ts(s, swarm::NEVER);
-#else
+//#ifdef COMPETITIVE_SCHEDULE
+//    sets->set_base_ts(s, swarm::NEVER);
+//#else
     cardinalities[s] = 0;
-#endif
+//#endif
 
     // Delete Set v's member Elements from other Sets
     const vertex& vs = V<vertex>(s);
     size_t sD = vs.getOutDegree();
+#if 0
+    bool redundant = true;
+    for (int i = 0; i < sD; i++) {  
+        if (!isElemCovered.test(vs.getOutNeighbor(i))) {
+            redundant = false;
+            break;
+        }
+    }
+    if (redundant) {
+        swarm::info("added redundant set to cover with covered neighbours:");
+        for (int i = 0; i < sD; i++) {  
+            swarm::info("%u", vs.getOutNeighbor(i));
+        }
+        assert(false);
+    }
+#endif
     swarm::enqueue_all<EnqFlags::NOHINT>(
         swarm::u64it(0),
         swarm::u64it(sD),
         [s,&vs] (swarm::Timestamp ts, uint64_t i) {
             uintE elem = vs.getOutNeighbor(i);
-#ifdef COMPETITIVE_SCHEDULE
+#if defined(COMPETITIVE_SCHEDULE) 
             swarm::absolute_enqueue(elements, coverElement<vertex>,
+                    ts, elem, s, elem);
+#elif defined(HIVE_BASIC)
+            DEBUG("prev ts: %lu, curr ts: %lu", 
+                    element->extract_ts(elem), ts);
+            if (elements->extract_ts(elem) > ts)
+                swarm::absolute_enqueue(elements, coverElement<vertex>,
                     ts, elem, s, elem);
 #else
             swarm::enqueue(coverElement<vertex>, ts,
@@ -120,7 +145,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 }
 
 
-#ifdef COMPETITIVE_SCHEDULE
+/*#ifdef COMPETITIVE_SCHEDULE
 template<class vertex>
 static inline void decrementCardinality(swarm::Timestamp, uintE s) {
     if (pls_unlikely(cardinality(sets->extract_ts(s)) == 1)) {
@@ -130,21 +155,21 @@ static inline void decrementCardinality(swarm::Timestamp, uintE s) {
         swarm::relative_enqueue(sets, addSet<vertex>, 1ul << 32, hint(s), s);
     }
 }
-#else
+#else*/
 template<class vertex>
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
     assert(*cptr > 0);
     (*cptr)--;
 }
-#endif
+//#endif
 
 
 template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
-    DEBUG("Cover element %lu by set %lu, degree %u, currently %scovered", 
-            elem, s, V<vertex>(elem).getInDegree(), isElemCovered.test(elem) ? "" : "un");
-#ifndef COMPETITIVE_SCHEDULE
+    DEBUG("%lu: Cover element %lu by set %lu, degree %u, currently %scovered", 
+            ts, elem, s, V<vertex>(elem).getInDegree(), isElemCovered.test(elem) ? "" : "un");
+#if !defined(COMPETITIVE_SCHEDULE) && !defined(HIVE_BASIC)
     if (isElemCovered.test(elem)) return;
     isElemCovered.set(elem, true);
 #endif
@@ -157,12 +182,12 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
         [s,&ve] (swarm::Timestamp ts, uintE j) {
             uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
-#ifdef COMPETITIVE_SCHEDULE
+/*#ifdef COMPETITIVE_SCHEDULE
                 swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), s1);
-#else
+#else*/
                 uintE* cptr = &cardinalities[s1];
                 swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), cptr);
-#endif
+//#endif
             }
         },
         ts);
@@ -171,7 +196,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 
 template <class vertex>
 static inline void addSetCG(swarm::Timestamp ts, uintE s) {
-#ifndef COMPETITIVE_SCHEDULE
+#if !defined(COMPETITIVE_SCHEDULE) && !defined(HIVE_BASIC)
     // FIXME the CG version doesn't need to break ties for equal-cardinality,
     // so this is unnecessarily deterministic
     if (cardinality(ts) > cardinalities[s]) {
@@ -194,11 +219,11 @@ static inline void addSetCG(swarm::Timestamp ts, uintE s) {
     cover[s] = s;
     // s and all its elements are now covered, so reset s's effective
     // cardinality to filter away all other tasks for s.
-#ifdef COMPETITIVE_SCHEDULE
-    sets->set_base_ts(s, swarm::NEVER);
-#else
+//#ifdef COMPETITIVE_SCHEDULE
+//    sets->set_base_ts(s, swarm::NEVER);
+//#else
     cardinalities[s] = 0;
-#endif
+//#endif
 
     // Delete Set v's member Elements from other Sets
     const vertex& vs = V<vertex>(s);
@@ -213,12 +238,12 @@ static inline void addSetCG(swarm::Timestamp ts, uintE s) {
         for (size_t j = 0; j < elemD; j++) {
             uintE s1 = ve.getOutNeighbor(j);
             if (s1 != s) {
-#ifdef COMPETITIVE_SCHEDULE
+//#ifdef COMPETITIVE_SCHEDULE
                 //TODO: Make this an enqueuer tree to cg_comp will actually work
-                swarm::relative_enqueue(sets, addSetCG<vertex>, 1ul << 32, hint(s1), s1);
-#else
+//                swarm::relative_enqueue(sets, addSetCG<vertex>, 1ul << 32, hint(s1), s1);
+//#else
                 cardinalities[s1]--;
-#endif
+//#endif
             }
         }
     }
@@ -230,11 +255,14 @@ void SetCover(graph<vertex>& G) {
     vertices = G.V;
     cover.resize(G.n);
 #ifdef COMPETITIVE_SCHEDULE
-    sets = new swarm::Scheduler<EnqFlags::UPDATEABLE, true>(G.n);
+  //  sets = new swarm::Scheduler<EnqFlags::UPDATEABLE, true>(G.n);
     elements = new swarm::Scheduler<EnqFlags::COMPETITIVE, false>(G.n);
-#else
-    cardinalities.resize(G.n);
+#elif defined(HIVE_BASIC)
+    elements = new swarm::Scheduler<EnqFlags::UPDATEABLE, true>(G.n);
 #endif
+//#else
+    cardinalities.resize(G.n);
+//#endif
     swarm::fill(cover.begin(), cover.end(), INVALID, 0ul);
     isElemCovered.resize<>(G.n, false, 0ul);
     // Initialize the cardinalities array
@@ -263,22 +291,22 @@ void SetCover(graph<vertex>& G) {
         sortedSets.end(),
         [] (swarm::Timestamp ts) {
             uintE s = set(ts);
-#ifdef COMPETITIVE_SCHEDULE
+//#ifdef COMPETITIVE_SCHEDULE
             //swarm::info("set = %u, ts = %lu, setTS = %lu", s, ts, sets->extract_ts(s));
-            swarm::relative_enqueue(sets,
-#else
+//            swarm::relative_enqueue(sets,
+//#else
             swarm::enqueue(
-#endif
+//#endif
 #ifdef COARSE_GRAIN
                            addSetCG<vertex>,
 #else
                            addSet<vertex>,
 #endif
-#ifdef COMPETITIVE_SCHEDULE
-                           0,
-#else
+//#ifdef COMPETITIVE_SCHEDULE
+//                          0,
+//#else
                            ts, 
-#endif
+//#endif
                            hint(s), s);
         },
         [] (swarm::Timestamp ts) { return ts; },
