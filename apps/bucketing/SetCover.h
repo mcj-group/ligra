@@ -24,44 +24,47 @@ inline bool success(const graph<vertex>& G, const collection& cover) {
     // Validate feasibility of the solution:
     // 1) All elements should be covered by the set cover
     // 2) No set in the cover should be redundant (i.e. all its elements are
-    //    already covered)
+    //    already covered) 
     // 3) N.B. validating optimality is hard (this is NP comlete). Maybe we
     //    could check the H_n-approximate guarantee? But then we'd need to know
     //    the optimal solution...
-    std::vector<uint64_t> redundantSets;
+    //
+    //GP: The greedy algo can produce some redundant sets while running correctly so
+    //remove this check
+    //std::vector<uint64_t> redundantSets;
     for (auto s : cover) {
         size_t sD = G.V[s].getOutDegree();
-        bool redundant = true;
+        //bool redundant = true;
         for (size_t i = 0; i < sD; i++) {
             size_t elem = G.V[s].getOutNeighbor(i);
             if (!isElemCovered[elem]) {
-                redundant = false;
+                //redundant = false;
                 isElemCovered[elem] = true;
             }
         }
-        if (redundant) redundantSets.push_back(s);
+        //if (redundant) redundantSets.push_back(s);
     }
 
     auto isTrue = [] (bool b) { return b; };
     auto it = std::find(isElemCovered.begin(), isElemCovered.end(), false);
     bool ec = (it == isElemCovered.end());
     bool size = cover.size() <= G.n;
-    bool red = !redundantSets.empty();
+    //bool red = !redundantSets.empty();
     if (!ec) {
         std::cerr << "ERROR: element " << std::distance(isElemCovered.begin(), it)
                   << " was not covered"
                   << std::endl;
     }
     if (!size) std::cerr << "ERROR: the subcover was too large" << std::endl;
-    if (red) {
+    /*if (red) {
         std::cerr << "ERROR: found redundant sets in the cover: " << std::endl;
         size_t count = 10;
         for (auto s : redundantSets) {
             std::cerr << s << std::endl;
             if (count-- == 0) break;
         }
-    }
-    bool success = (ec && size && !red);
+    }*/
+    bool success = (ec && size/* && !red*/);
     if (success) std::cout << "Validation succeeded" << std::endl;
     return success;
 }
