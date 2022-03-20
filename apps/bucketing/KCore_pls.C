@@ -1,5 +1,4 @@
 #include "ligra.h"
-#include <vector>
 #include "index_map.h"
 #include "bucket.h"
 #include "edgeMapReduce.h"
@@ -69,11 +68,6 @@ struct Update
 };
 
 template <class vertex>
-static void init(Timestamp, Update<vertex> *u, uintE v) {
-    s->set_base_ts(v, u->GA.V[v].getOutDegree());
-}
-
-template <class vertex>
 array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
   const size_t n = GA.n; const size_t m = GA.m;
   auto D = array_imap<uintE>(n, [&] (size_t i) { return GA.V[i].getOutDegree(); });
@@ -83,27 +77,11 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
   s = new Scheduler<EnqFlags::MAYSPEC, true>(n);
 #endif
   Update<vertex> u = {GA};
-  enqueue_all<EnqFlags(NOHINT | ONLY_ENQUEUES)>(
-          swarm::u64it(0), swarm::u64it(n), [&u] (Timestamp, uint64_t v){
-          enqueue(init<vertex>, 0ul, s->hint(v), &u, v);
-          }, 0ul);
-
-    // Queue each Vertex, prioritized by its current (initial) degree/cardinality
-    // FIXME(mcj) as always, we really should invest in a swarm::sort
-    std::vector<uint64_t> sortedVertices;
-    sortedVertices.reserve(GA.n);
-    for (size_t s = 0; s < GA.n; s++) {
-        uintE c = GA.V[s].getOutDegree();
-        if (c) sortedVertices.push_back((c << 32) | s);
-    }
-    std::sort(sortedVertices.begin(), sortedVertices.end());
-
-
   enqueue_all_progressive<swarm::max_children>(
-          sortedVertices.begin(), sortedVertices.end(), [&] (Timestamp ts, uint64_t cv){
-                relative_enqueue(s, callUpdate<vertex>, 0ul, cv & ((1ul << 32) - 1), &u); }, 
-          [] (uint64_t cv) { return cv >> 32; }, 
-          [] (uint64_t v) { return EnqFlags::NOHINT; }); 
+          swarm::u64it(0), swarm::u64it(n), [&] (Timestamp ts, uint64_t v){
+                absolute_enqueue(s, callUpdate<vertex>, GA.V[v].getOutDegree(), v, &u); }, 
+          [] (uint64_t) { return 0ul; }, 
+          [] (uint64_t v) { return v; }); //accessing vertices in order so might as well use as hint
   swarm::run();
   s->extract_all_ts(D.s);
 
