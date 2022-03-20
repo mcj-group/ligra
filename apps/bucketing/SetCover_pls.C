@@ -109,12 +109,12 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
     isElemCovered.set(elem, true);
 
     const vertex& ve = V<vertex>(elem);
-    size_t elemD = ve.getOutDegree();
+    size_t elemD = ve.getInDegree();
     swarm::enqueue_all<EnqFlags::NOHINT>(
         swarm::u64it(0),
         swarm::u64it(elemD),
         [s,&ve] (swarm::Timestamp ts, uintE j) {
-            uintE s1 = ve.getOutNeighbor(j);
+            uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
                 uintE* cptr = &cardinalities[s1];
                 swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), cptr);
