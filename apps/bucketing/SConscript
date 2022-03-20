@@ -11,7 +11,7 @@ apps = [
         # [mcj] Disable this build on the main branch as the Scheduler header
         # file isn't here.
         # TODO uncomment once priority updates are merged into main
-        #"KCore"
+        "KCore",
         "SetCover"
         ]
 
