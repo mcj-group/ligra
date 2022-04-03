@@ -101,7 +101,9 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
 
   enqueue_all_progressive<swarm::max_children>(
           sortedVertices.begin(), sortedVertices.end(), [&] (Timestamp ts, uint64_t cv){
-                relative_enqueue(s, callUpdate<vertex>, 0ul, cv & ((1ul << 32) - 1), &u); }, 
+                uintE v = cv & ((1ul << 32) - 1);
+                if (s->extract_ts(v) == u.GA.V[v].getOutDegree())
+                    relative_enqueue(s, callUpdate<vertex>, 0ul, v, &u); }, 
           [] (uint64_t cv) { return cv >> 32; }, 
           [] (uint64_t v) { return EnqFlags::NOHINT; }); 
   swarm::run();
