@@ -24,7 +24,11 @@ cgCompEnv = cgEnv.Clone()
 cgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
 cgCompEnv['PROGSUFFIX'] = '_cg_comp'
 cgCompEnv['OBJSUFFIX'] = '.cgco'
+fgBasicEnv = fgEnv.Clone()
+fgBasicEnv.Append(CPPDEFINES = ['HIVE_BASIC'])
+fgBasicEnv['PROGSUFFIX'] = '_fg_basic'
+fgBasicEnv['OBJSUFFIX'] = '.fgbo'
 
-for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv]:
+for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv, fgBasicEnv]:
     for app in apps:
         env.Program(target='pls' + app, source=[app + '_pls.C'])
