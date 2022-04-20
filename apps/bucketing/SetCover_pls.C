@@ -130,8 +130,8 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
             swarm::absolute_enqueue(elements, coverElement<vertex>,
                     ts, elem, s, elem);
 #elif defined(HIVE_BASIC)
-            DEBUG("prev ts: %lu, curr ts: %lu", 
-                    element->extract_ts(elem), ts);
+            //DEBUG("prev ts: %lu, curr ts: %lu", 
+            //        element->extract_ts(elem), ts);
             if (elements->extract_ts(elem) > ts)
                 swarm::absolute_enqueue(elements, coverElement<vertex>,
                     ts, elem, s, elem);
@@ -159,8 +159,18 @@ static inline void decrementCardinality(swarm::Timestamp, uintE s) {
 template<class vertex>
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
-    assert(*cptr > 0);
-    (*cptr)--;
+    if(*cptr > 0) (*cptr)--;
+#if 0
+    if(*cptr == 0) {
+        const vertex& s = V<vertex>(std::distance(&cardinalities[0], cptr));
+        for (int i = 0; i < s.getOutDegree(); i++) { 
+            if (!isElemCovered.test(s.getOutNeighbor(i)))
+                swarm::info("uncovered neighbor of set %lu with 0 cardinality: %lu", 
+                        std::distance(&cardinalities[0], cptr), s.getOutNeighbor(i));
+            assert(isElemCovered.test(s.getOutNeighbor(i)));
+        }
+    }
+#endif
 }
 //#endif
 
@@ -234,9 +244,9 @@ static inline void addSetCG(swarm::Timestamp ts, uintE s) {
         isElemCovered.set(elem, true);
 
         const vertex& ve = V<vertex>(elem);
-        size_t elemD = ve.getOutDegree();
+        size_t elemD = ve.getInDegree();
         for (size_t j = 0; j < elemD; j++) {
-            uintE s1 = ve.getOutNeighbor(j);
+            uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
 //#ifdef COMPETITIVE_SCHEDULE
                 //TODO: Make this an enqueuer tree to cg_comp will actually work
@@ -262,6 +272,16 @@ void SetCover(graph<vertex>& G) {
 #endif
 //#else
     cardinalities.resize(G.n);
+#ifdef RELAXED
+    //These need to happen before everything else, which 
+    //I can't guarantee with the relaxed scheduler
+    //so they need to be moved before the ROI
+    std::fill(cover.begin(), cover.end(), INVALID);
+    isElemCovered.resize(G.n, false);
+    for (int i = 0; i < G.n; i++) {
+        init<vertex>(0, i);
+    }
+#else
 //#endif
     swarm::fill(cover.begin(), cover.end(), INVALID, 0ul);
     isElemCovered.resize<>(G.n, false, 0ul);
@@ -275,6 +295,7 @@ void SetCover(graph<vertex>& G) {
         [] (uint64_t) { return 1ul; },
         [] (uint64_t s) { return hint(s); }
     );
+#endif
 
     // Queue each Set, prioritized by its current (initial) degree/cardinality
     // FIXME(mcj) as always, we really should invest in a swarm::sort

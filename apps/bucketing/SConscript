@@ -32,3 +32,21 @@ fgBasicEnv['OBJSUFFIX'] = '.fgbo'
 for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv, fgBasicEnv]:
     for app in apps:
         env.Program(target='pls' + app, source=[app + '_pls.C'])
+
+accumCompEnv = fgCompEnv.Clone()
+accumCompEnv.Append(CPPDEFINES = ['ACCUMULATE'])
+accumCompEnv['PROGSUFFIX'] = '_accum_comp'
+accumCompEnv['OBJSUFFIX'] = '.aco'
+accumEnv = fgEnv.Clone()
+accumEnv.Append(CPPDEFINES = ['ACCUMULATE'])
+accumEnv['PROGSUFFIX'] = '_accum'
+accumEnv['OBJSUFFIX'] = '.ao'
+
+for env in [accumEnv, accumCompEnv]:
+    env.Program('plsKCore', source=['KCore_pls.C'])
+
+relaxedEnv = fgEnv.Clone()
+relaxedEnv.Append(CPPDEFINES = ['RELAXED'])
+relaxedEnv['PROGSUFFIX'] = '_relaxed'
+relaxedEnv['OBJSUFFIX'] = '.ro'
+relaxedEnv.Program(target='plsSetCover', source=['SetCover_pls.C'])
