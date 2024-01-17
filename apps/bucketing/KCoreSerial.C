@@ -110,7 +110,7 @@ template<class vertex>
 void Compute(graph<vertex> & GA, commandLine P)
 {
   bool printCores = P.getOptionValue("-p");
-  cout << "### application: k-core-serial" << endl;
+  cout << "### application: julienne-kcore-bzq" << endl;
   cout << "### graph: " << P.getArgument(0) << endl;
   cout << "### workers: " << getWorkers() << endl;
   cout << "### n: " << GA.n << endl;

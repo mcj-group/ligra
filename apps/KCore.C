@@ -73,6 +73,12 @@ struct Deg_AtLeast_K {
 // 3) stop once no vertices are removed. Vertices remaining are in the k-core.
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
+  bool printCores = P.getOptionValue("-p");
+  cout << "### application: ligra-kcore" << endl;
+  cout << "### graph: " << P.getArgument(0) << endl;
+  cout << "### workers: " << getWorkers() << endl;
+  cout << "### n: " << GA.n << endl;
+  cout << "### m: " << GA.m << endl;
   const long n = GA.n;
   bool* active = newA(bool,n);
   {parallel_for(long i=0;i<n;i++) active[i] = 1;}
@@ -101,6 +107,12 @@ void Compute(graph<vertex>& GA, commandLine P) {
       }
     }
     if(Frontier.numNonzeros() == 0) { largestCore = k-1; break; }
+  }
+  if (printCores) {
+    cout << "cores: " << endl;
+    for (int i = 0; i < GA.n; i++) {
+      cout << coreNumbers[i] << endl;
+    }
   }
   cout << "largestCore was " << largestCore << endl;
   Frontier.del(); free(coreNumbers); free(Degrees);
