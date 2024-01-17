@@ -47,7 +47,7 @@ void Compute(graph<vertex> & GA, commandLine P)
     cout << "Number of buckets must be a power of two." << endl;
     exit(-1);
   }
-  cout << "### application: k-core" << endl;
+  cout << "### application: julienne-kcore" << endl;
   cout << "### graph: " << P.getArgument(0) << endl;
   cout << "### workers: " << getWorkers() << endl;
   cout << "### buckets: " << num_buckets << endl;
