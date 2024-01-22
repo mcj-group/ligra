@@ -114,30 +114,30 @@ struct vertexSubsetData<pbbs::empty> {
   using S = uintE;
 
   // An empty vertex set.
-  vertexSubsetData<pbbs::empty>(size_t _n) : n(_n), m(0), d(NULL), s(NULL), isDense(0) {}
+  vertexSubsetData(size_t _n): n(_n), m(0), d(NULL), s(NULL), isDense(0) {}
 
   // A vertexSubset with a single vertex.
-  vertexSubsetData<pbbs::empty>(long _n, uintE v)
+  vertexSubsetData(long _n, uintE v)
   : n(_n), m(1), d(NULL), isDense(0) {
     s = newA(uintE, 1);
     s[0] = v;
   }
 
   // A vertexSubset from array of vertex indices.
-  vertexSubsetData<pbbs::empty>(long _n, long _m, S* indices)
+  vertexSubsetData(long _n, long _m, S* indices)
   : n(_n), m(_m), s(indices), d(NULL), isDense(0) {}
 
   // A vertexSubset from array of vertex indices.
-  vertexSubsetData<pbbs::empty>(long _n, long _m, tuple<uintE, pbbs::empty>* indices)
+  vertexSubsetData(long _n, long _m, tuple<uintE, pbbs::empty>* indices)
   : n(_n), m(_m), s((uintE*)indices), d(NULL), isDense(0) {}
 
   // A vertexSubset from boolean array giving number of true values.
-  vertexSubsetData<pbbs::empty>(long _n, long _m, bool* _d)
+  vertexSubsetData(long _n, long _m, bool* _d)
   : n(_n), m(_m), s(NULL), d(_d), isDense(1)  {}
 
   // A vertexSubset from boolean array giving number of true values. Calculate
   // number of nonzeros and store in m.
-  vertexSubsetData<pbbs::empty>(long _n, bool* _d)
+  vertexSubsetData(long _n, bool* _d)
   : n(_n), s(NULL), d(_d), isDense(1) {
     auto d_map = make_in_imap<size_t>(n, [&] (size_t i) { return _d[i]; });
     auto f = [&] (size_t i, size_t j) { return i + j; };
@@ -146,7 +146,7 @@ struct vertexSubsetData<pbbs::empty> {
 
   // A vertexSubset from boolean array giving number of true values. Calculate
   // number of nonzeros and store in m.
- vertexSubsetData<pbbs::empty>(long _n, tuple<bool, pbbs::empty>* _d)
+ vertexSubsetData(long _n, tuple<bool, pbbs::empty>* _d)
   : n(_n), s(NULL), d((bool*)_d), isDense(1)  {
     auto d_map = make_in_imap<size_t>(n, [&] (size_t i) { return get<0>(_d[i]); });
     auto f = [&] (size_t i, size_t j) { return i + j; };
