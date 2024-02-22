@@ -10,20 +10,12 @@ apps = [
         # [mcj] Disable this build on the main branch as the Scheduler header
         # file isn't here.
         # TODO uncomment once priority updates are merged into main
-        #"KCore"
+        "KCore",
         "SetCover"
         ]
 
 cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
-fgCompEnv = fgEnv.Clone()
-fgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
-fgCompEnv['PROGSUFFIX'] = '_fg_comp'
-fgCompEnv['OBJSUFFIX'] = '.fgco'
-cgCompEnv = cgEnv.Clone()
-cgCompEnv.Append(CPPDEFINES = ['COMPETITIVE_SCHEDULE'])
-cgCompEnv['PROGSUFFIX'] = '_cg_comp'
-cgCompEnv['OBJSUFFIX'] = '.cgco'
 
-for env in [fgEnv, cgEnv, fgCompEnv, cgCompEnv]:
+for env in [fgEnv, cgEnv]:
     for app in apps:
         env.Program(target='pls' + app, source=[app + '_pls.C'])

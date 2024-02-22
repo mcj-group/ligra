@@ -22,7 +22,7 @@ static void callUpdate(Timestamp ts, Update<vertex> *u, uintE v)
 }
 
 //function to call the relative update for fine-grained implementations
-template<class vertex> 
+template<class vertex>
 static void decrementDegree(Timestamp ts, Update<vertex> *u, uintE v)
 {
 #ifndef COMPETITIVE_SCHEDULE
@@ -36,7 +36,7 @@ template <class vertex>
 struct Update
 {
     graph<vertex>& GA;
-    
+
     void operator() (Timestamp ts, uintE v)
     {
 #ifndef COMPETITIVE_SCHEDULE
@@ -44,7 +44,7 @@ struct Update
 #endif
         enqueue_all_progressive<swarm::max_children>(
                 swarm::u64it(0), swarm::u64it(GA.V[v].getOutDegree()),
-                [&] (Timestamp ts, uint64_t i) {
+                [this, v] (Timestamp ts, uint64_t i) {
                     uintE ngh = GA.V[v].getOutNeighbor(i);
 #ifdef COARSE_GRAIN
 #ifndef COMPETITIVE_SCHEDULE
@@ -55,8 +55,8 @@ struct Update
 #else
                     enqueue(decrementDegree<vertex>, ts, ngh, this, ngh); },
 #endif
-                [&] (uint64_t) { return ts; },
-                [] (uint64_t) { return EnqFlags::NOHINT; }); //no point in a hint unless graph is well-ordered/low degree 
+                [ts] (uint64_t) { return ts; },
+                [] (uint64_t) { return EnqFlags::NOHINT; }); //no point in a hint unless graph is well-ordered/low degree
     }
 };
 
@@ -72,8 +72,8 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
   Update<vertex> u = {GA};
   enqueue_all_progressive<swarm::max_children>(
           swarm::u64it(0), swarm::u64it(n), [&] (Timestamp ts, uint64_t v){
-                absolute_enqueue(s, callUpdate<vertex>, GA.V[v].getOutDegree(), v, &u, v); }, 
-          [] (uint64_t) { return 0ul; }, 
+                absolute_enqueue(s, callUpdate<vertex>, GA.V[v].getOutDegree(), v, &u, v); },
+          [] (uint64_t) { return 0ul; },
           [] (uint64_t v) { return v; }); //accessing vertices in order so might as well use as hint
   swarm::run();
   s->extract_all_ts(D.s);
