@@ -4,7 +4,12 @@
 #include "edgeMapReduce.h"
 #include "SetCover.h"
 
+#if __has_include("swarm/hooks.h")
 #include "swarm/hooks.h"
+#else
+#define zsim_roi_begin()
+#define zsim_roi_end()
+#endif
 
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE COVERED = ((uintE)INT_E_MAX) - 1;
