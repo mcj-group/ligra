@@ -20,9 +20,9 @@ endif
 
 #compilers
 ifdef CILK
-PCC = g++
-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
-PLFLAGS = -fcilkplus -lcilkrts
+PCC = /nfs/ug/groups/yangste9/cilk/build/bin/clang++
+PCFLAGS = -std=c++14 -fopencilk -O3 -DCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
+PLFLAGS = -fopencilk
 
 else ifdef MKLROOT
 PCC = icpc
@@ -33,7 +33,7 @@ PCC = g++
 PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE) $(CODE) $(PD)
 
 else
-PCC = g++
+PCC = /nfs/ug/homes-0/y/yangste9/gcc11/bin/g++
 PCFLAGS = -std=c++17 -O3
 endif
 
