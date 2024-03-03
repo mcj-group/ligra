@@ -24,7 +24,24 @@
 #ifndef _PARALLEL_H
 #define _PARALLEL_H
 
-#if defined(CILK)
+#if defined(OPENCILK)
+#include <cilk/cilk.h>
+#define parallel_main main
+#define parallel_for cilk_for
+#define parallel_for_1 _Pragma("cilk_grainsize = 1") cilk_for
+#define parallel_for_256 _Pragma("cilk_grainsize = 256") cilk_for
+#include <cilk/cilk_api.h>
+#include <sstream>
+#include <iostream>
+#include <cstdlib>
+static int getWorkers() {
+  return std::static_cast<int>(std::getenv("CILK_NWORKERS"));
+}
+static void setWorkers(int n) {
+  std::cout << "opencilk does not support dynamic modification of worker count.\nensure CILK_NWORKERS=x is set in environment variables." << std::endl;
+}
+
+#elif defined(CILK)
 #include <cilk/cilk.h>
 #define parallel_main main
 #define parallel_for cilk_for
