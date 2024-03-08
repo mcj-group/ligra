@@ -117,3 +117,4 @@ void Compute(graph<vertex>& GA, commandLine P) {
   cout << "largestCore was " << largestCore << endl;
   Frontier.del(); free(coreNumbers); free(Degrees);
 }
+

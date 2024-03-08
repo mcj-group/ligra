@@ -25,7 +25,12 @@
 //uncomment the following line to print out the sum of values in latent vector
 //#define DEBUG 1
 
+#if __has_include("swarm/hooks.h")
 #include "swarm/hooks.h"
+#else
+#define zsim_roi_begin()
+#define zsim_roi_end()
+#endif
 
 #ifdef COMPUTE_ERROR
 double* squaredErrors;

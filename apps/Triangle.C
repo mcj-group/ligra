@@ -30,7 +30,12 @@
 #include "ligra.h"
 #include "quickSort.h"
 
+#if __has_include("swarm/hooks.h")
 #include "swarm/hooks.h"
+#else
+#define zsim_roi_begin()
+#define zsim_roi_end()
+#endif
 
 //assumes sorted neighbor lists
 template <class vertex>
