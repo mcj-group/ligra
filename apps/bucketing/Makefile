@@ -20,8 +20,8 @@ endif
 
 #compilers
 ifdef CILK
-PCC = /nfs/ug/groups/yangste9/cilk/build/bin/clang++
-PCFLAGS = -std=c++14 -fopencilk -O3 -DCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
+PCC = clang++
+PCFLAGS = -std=c++14 -fopencilk -O3 -DOPENCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
 PLFLAGS = -fopencilk
 
 else ifdef MKLROOT

@@ -34,8 +34,12 @@
 #include <sstream>
 #include <iostream>
 #include <cstdlib>
+#include <stdlib.h>
+
 static int getWorkers() {
-  return std::static_cast<int>(std::getenv("CILK_NWORKERS"));
+  int nw;
+  sscanf(std::getenv("CILK_NWORKERS"), "%d", &nw);
+  return nw;
 }
 static void setWorkers(int n) {
   std::cout << "opencilk does not support dynamic modification of worker count.\nensure CILK_NWORKERS=x is set in environment variables." << std::endl;
