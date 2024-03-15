@@ -2,9 +2,10 @@ Import('fgEnv', 'cgEnv')
 
 # [mcj] Note that the equivalent Makefile only conditionally defines
 # these flags. Are we sure we want 64- or 32-bit values/weights?
-# TODO decide about -DPD -DBYTE -DNIBBLE  -DBYTERLE
-fgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG'])
-cgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG'])
+# TODO document why these should be enabled in Julienne but not Ligra
+# TODO decide about -DPD -DBYTE -DNIBBLE
+fgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
+cgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
 
 apps = [
         # [mcj] Disable this build on the main branch as the Scheduler header
@@ -19,3 +20,9 @@ cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
 for env in [fgEnv, cgEnv]:
     for app in apps:
         env.Program(target='pls' + app, source=[app + '_pls.C'])
+
+relaxedEnv = fgEnv.Clone()
+relaxedEnv.Append(CPPDEFINES = ['RELAXED'])
+relaxedEnv['PROGSUFFIX'] = '_relaxed'
+relaxedEnv['OBJSUFFIX'] = '.ro'
+relaxedEnv.Program(target='plsSetCover', source=['SetCover_pls.C'])
