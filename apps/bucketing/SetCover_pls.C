@@ -11,6 +11,9 @@
 #include <cstdio>
 #include <limits>
 #include <vector>
+#ifdef NONATOMIC_TASKS
+#include <atomic>
+#endif
 
 #define DEBUG(args...) //swarm::info(args)
 
@@ -22,11 +25,16 @@ static swarm::Scheduler<EnqFlags::COMPETITIVE, false> *elements;
 static swarm::Scheduler<EnqFlags::UPDATEABLE, true> *elements;
 #endif
 //#else
+#ifdef NONATOMIC_TASKS
+static std::vector<std::atomic<int64_t>>* cardinalities;
+static std::vector<std::atomic_flag>* isElemCovered;
+#else
 static std::vector<uintE> cardinalities;
+static swarm::bitset isElemCovered;
+#endif
 //#endif
 
 static std::vector<uintE> cover;
-static swarm::bitset isElemCovered;
 // [mcj] Major hack to get around the annoying templating of the vertex type
 static void* vertices;
 
@@ -54,6 +62,8 @@ constexpr uintE set(swarm::Timestamp ts) {
 static inline uint64_t hint(uintE set) {
 #if defined(COMPETITIVE_SCHEDULE) || defined(HIVE_BASIC)
     return set;
+#elif defined(NONATOMIC_TASKS)
+    return swarm::Hint::cacheLine(&(*cardinalities)[set]);
 #else
     return swarm::Hint::cacheLine(&cardinalities[set]);
 #endif
@@ -65,7 +75,11 @@ static inline void init(swarm::Timestamp, uintE s) {
 //#ifdef COMPETITIVE_SCHEDULE
 //  sets->set_base_ts(s, timestamp(V<vertex>(s).getOutDegree(), s));
 //#else
+#ifdef NONATOMIC_TASKS
+    std::atomic_init(&(*cardinalities)[s], V<vertex>(s).getOutDegree());
+#else
     cardinalities[s] = V<vertex>(s).getOutDegree();
+#endif
 //#endif
 }
 
@@ -76,12 +90,21 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uint64_t elem);
 template <class vertex>
 static inline void addSet(swarm::Timestamp ts, uintE s) {
 //#ifndef COMPETITIVE_SCHEDULE
+#ifdef NONATOMIC_TASKS
+    int64_t card = (*cardinalities)[s].load(std::memory_order_relaxed);
+    if (cardinality(ts) > card) {
+        // This task instance is too early given the now-lower |s|
+        if (card > 0) {
+            // So re-enqueue with the correct timestamp for |s|.
+            ts = timestamp(card, s);
+#else
     if (cardinality(ts) > cardinalities[s]) {
         // This task instance is too early given the now-lower |s|
         if (cardinalities[s]) {
             // So re-enqueue with the correct timestamp for |s|.
             ts = timestamp(cardinalities[s], s);
-            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK);
+#endif
+            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK | MAYSPEC);
             swarm::enqueue(addSet<vertex>, ts, flags, s);
         }
         return;
@@ -99,7 +122,11 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 //#ifdef COMPETITIVE_SCHEDULE
 //    sets->set_base_ts(s, swarm::NEVER);
 //#else
+#ifdef NONATOMIC_TASKS
+    (*cardinalities)[s].store(0, std::memory_order_relaxed);
+#else
     cardinalities[s] = 0;
+#endif
 //#endif
 
     // Delete Set v's member Elements from other Sets
@@ -107,7 +134,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
     size_t sD = vs.getOutDegree();
 #if 0
     bool redundant = true;
-    for (int i = 0; i < sD; i++) {  
+    for (int i = 0; i < sD; i++) {
         if (!isElemCovered.test(vs.getOutNeighbor(i))) {
             redundant = false;
             break;
@@ -115,29 +142,33 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
     }
     if (redundant) {
         swarm::info("added redundant set to cover with covered neighbours:");
-        for (int i = 0; i < sD; i++) {  
+        for (int i = 0; i < sD; i++) {
             swarm::info("%u", vs.getOutNeighbor(i));
         }
         assert(false);
     }
 #endif
-    swarm::enqueue_all<EnqFlags::NOHINT>(
+    swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC)>(
         swarm::u64it(0),
         swarm::u64it(sD),
         [s,&vs] (swarm::Timestamp ts, uint64_t i) {
             uintE elem = vs.getOutNeighbor(i);
-#if defined(COMPETITIVE_SCHEDULE) 
+#if defined(COMPETITIVE_SCHEDULE)
             swarm::absolute_enqueue(elements, coverElement<vertex>,
                     ts, elem, s, elem);
 #elif defined(HIVE_BASIC)
-            //DEBUG("prev ts: %lu, curr ts: %lu", 
+            //DEBUG("prev ts: %lu, curr ts: %lu",
             //        element->extract_ts(elem), ts);
             if (elements->extract_ts(elem) > ts)
                 swarm::absolute_enqueue(elements, coverElement<vertex>,
                     ts, elem, s, elem);
 #else
             swarm::enqueue(coverElement<vertex>, ts,
-                           {isElemCovered.hint(elem), EnqFlags::PRODUCER},
+#ifdef NONATOMIC_TASKS
+                           {swarm::Hint::cacheLine(&((*isElemCovered)[elem])), EnqFlags::MAYSPEC},
+#else
+                           {isElemCovered.hint(elem), EnqFlags(PRODUCER | MAYSPEC)},
+#endif
                            s, elem);
 #endif
         },
@@ -157,15 +188,21 @@ static inline void decrementCardinality(swarm::Timestamp, uintE s) {
 }
 #else*/
 template<class vertex>
+#ifdef NONATOMIC_TASKS
+static inline void decrementCardinality(swarm::Timestamp, std::atomic<int64_t>* cptr) {
+    DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
+    cptr->fetch_sub(1, std::memory_order_relaxed);
+#else
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
     if(*cptr > 0) (*cptr)--;
+#endif
 #if 0
     if(*cptr == 0) {
         const vertex& s = V<vertex>(std::distance(&cardinalities[0], cptr));
-        for (int i = 0; i < s.getOutDegree(); i++) { 
+        for (int i = 0; i < s.getOutDegree(); i++) {
             if (!isElemCovered.test(s.getOutNeighbor(i)))
-                swarm::info("uncovered neighbor of set %lu with 0 cardinality: %lu", 
+                swarm::info("uncovered neighbor of set %lu with 0 cardinality: %lu",
                         std::distance(&cardinalities[0], cptr), s.getOutNeighbor(i));
             assert(isElemCovered.test(s.getOutNeighbor(i)));
         }
@@ -177,16 +214,20 @@ static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
 
 template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
-    DEBUG("%lu: Cover element %lu by set %lu, degree %u, currently %scovered", 
+    DEBUG("%lu: Cover element %lu by set %lu, degree %u, currently %scovered",
             ts, elem, s, V<vertex>(elem).getInDegree(), isElemCovered.test(elem) ? "" : "un");
 #if !defined(COMPETITIVE_SCHEDULE) && !defined(HIVE_BASIC)
+#ifdef NONATOMIC_TASKS
+    if ((*isElemCovered)[elem].test_and_set()) return;
+#else
     if (isElemCovered.test(elem)) return;
     isElemCovered.set(elem, true);
+#endif
 #endif
 
     const vertex& ve = V<vertex>(elem);
     size_t elemD = ve.getInDegree();
-    swarm::enqueue_all<EnqFlags::NOHINT>(
+    swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC)>(
         swarm::u64it(0),
         swarm::u64it(elemD),
         [s,&ve] (swarm::Timestamp ts, uintE j) {
@@ -195,8 +236,13 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 /*#ifdef COMPETITIVE_SCHEDULE
                 swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), s1);
 #else*/
-                uintE* cptr = &cardinalities[s1];
-                swarm::enqueue(decrementCardinality<vertex>, ts, hint(s1), cptr);
+#ifdef NONATOMIC_TASKS
+                auto cptr = &((*cardinalities)[s1]);
+#else
+                auto cptr = &cardinalities[s1];
+#endif
+                swarm::enqueue(decrementCardinality<vertex>, ts,
+                        {hint(s1), EnqFlags::MAYSPEC}, cptr);
 //#endif
             }
         },
@@ -206,6 +252,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 
 template <class vertex>
 static inline void addSetCG(swarm::Timestamp ts, uintE s) {
+#ifndef NONATOMIC_TASKS
 #if !defined(COMPETITIVE_SCHEDULE) && !defined(HIVE_BASIC)
     // FIXME the CG version doesn't need to break ties for equal-cardinality,
     // so this is unnecessarily deterministic
@@ -242,7 +289,6 @@ static inline void addSetCG(swarm::Timestamp ts, uintE s) {
         uintE elem = vs.getOutNeighbor(i);
         if (isElemCovered.test(elem)) continue;
         isElemCovered.set(elem, true);
-
         const vertex& ve = V<vertex>(elem);
         size_t elemD = ve.getInDegree();
         for (size_t j = 0; j < elemD; j++) {
@@ -257,6 +303,7 @@ static inline void addSetCG(swarm::Timestamp ts, uintE s) {
             }
         }
     }
+#endif
 }
 
 
@@ -271,13 +318,23 @@ void SetCover(graph<vertex>& G) {
     elements = new swarm::Scheduler<EnqFlags::UPDATEABLE, true>(G.n);
 #endif
 //#else
+#ifndef NONATOMIC_TASKS
     cardinalities.resize(G.n);
+#endif
 #ifdef RELAXED
-    //These need to happen before everything else, which 
+    //These need to happen before everything else, which
     //I can't guarantee with the relaxed scheduler
     //so they need to be moved before the ROI
     std::fill(cover.begin(), cover.end(), INVALID);
+#ifdef NONATOMIC_TASKS
+    std::vector<std::atomic<int64_t>> cards(G.n);
+    cardinalities = &cards;
+    std::vector<std::atomic_flag> elems(G.n);
+    for (int i = 0; i < G.n; i++) elems[i].clear();
+    isElemCovered = &elems;
+#else
     isElemCovered.resize(G.n, false);
+#endif
     for (int i = 0; i < G.n; i++) {
         init<vertex>(0, i);
     }
@@ -326,12 +383,12 @@ void SetCover(graph<vertex>& G) {
 //#ifdef COMPETITIVE_SCHEDULE
 //                          0,
 //#else
-                           ts, 
+                           ts,
 //#endif
-                           hint(s), s);
+                           {hint(s), EnqFlags::MAYSPEC}, s);
         },
         [] (swarm::Timestamp ts) { return ts; },
-        [] (swarm::Timestamp) -> swarm::Hint { return EnqFlags::NOHINT; }
+        [] (swarm::Timestamp) -> swarm::Hint { return EnqFlags(NOHINT | MAYSPEC); }
     );
 
     swarm::run();

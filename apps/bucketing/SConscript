@@ -8,9 +8,6 @@ fgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
 cgEnv.Append(CPPDEFINES = ['LONG', 'EDGELONG', 'BYTERLE'])
 
 apps = [
-        # [mcj] Disable this build on the main branch as the Scheduler header
-        # file isn't here.
-        # TODO uncomment once priority updates are merged into main
         "KCore",
         "SetCover"
         ]
@@ -26,3 +23,9 @@ relaxedEnv.Append(CPPDEFINES = ['RELAXED'])
 relaxedEnv['PROGSUFFIX'] = '_relaxed'
 relaxedEnv['OBJSUFFIX'] = '.ro'
 relaxedEnv.Program(target='plsSetCover', source=['SetCover_pls.C'])
+
+naEnv = relaxedEnv.Clone()
+naEnv.Append(CPPDEFINES = ['NONATOMIC_TASKS'])
+naEnv['PROGSUFFIX'] = '_na'
+naEnv['OBJSUFFIX'] = '.no'
+naEnv.Program(target='plsSetCover', source=['SetCover_pls.C'])
