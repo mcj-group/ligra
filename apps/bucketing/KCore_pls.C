@@ -53,10 +53,10 @@ struct Update
                     relative_enqueue(s, callUpdate<vertex>, -1, ngh, this, ngh); },
 #endif
 #else
-                    enqueue(decrementDegree<vertex>, ts, ngh, this, ngh); },
+                    enqueue(decrementDegree<vertex>, ts, {ngh, EnqFlags::MAYSPEC}, this, ngh); },
 #endif
                 [ts] (uint64_t) { return ts; },
-                [] (uint64_t) { return EnqFlags::NOHINT; }); //no point in a hint unless graph is well-ordered/low degree
+                [] (uint64_t) { return EnqFlags(NOHINT | MAYSPEC); }); //no point in a hint unless graph is well-ordered/low degree
     }
 };
 
@@ -74,7 +74,7 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
           swarm::u64it(0), swarm::u64it(n), [&] (Timestamp ts, uint64_t v){
                 absolute_enqueue(s, callUpdate<vertex>, GA.V[v].getOutDegree(), v, &u, v); },
           [] (uint64_t) { return 0ul; },
-          [] (uint64_t v) { return v; }); //accessing vertices in order so might as well use as hint
+          [] (uint64_t v) { return swarm::Hint({v, EnqFlags::MAYSPEC}); }); //accessing vertices in order so might as well use as hint
   swarm::run();
   s->extract_all_ts(D.s);
 

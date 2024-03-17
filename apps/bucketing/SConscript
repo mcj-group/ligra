@@ -14,10 +14,6 @@ apps = [
 
 cgEnv.Append(CPPDEFINES = ['COARSE_GRAIN'])
 
-for env in [fgEnv, cgEnv]:
-    for app in apps:
-        env.Program(target='pls' + app, source=[app + '_pls.C'])
-
 relaxedEnv = fgEnv.Clone()
 relaxedEnv.Append(CPPDEFINES = ['RELAXED'])
 relaxedEnv['PROGSUFFIX'] = '_relaxed'
@@ -28,4 +24,8 @@ naEnv = relaxedEnv.Clone()
 naEnv.Append(CPPDEFINES = ['NONATOMIC_TASKS'])
 naEnv['PROGSUFFIX'] = '_na'
 naEnv['OBJSUFFIX'] = '.no'
-naEnv.Program(target='plsSetCover', source=['SetCover_pls.C'])
+
+for env in [fgEnv, cgEnv, naEnv]:
+    for app in apps:
+        env.Program(target='pls' + app, source=[app + '_pls.C'])
+
