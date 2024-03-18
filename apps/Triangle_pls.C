@@ -82,8 +82,12 @@ struct countF { //for edgeMap
   }
   inline bool updateAtomic (uintE s, uintE d) {
     if (s > d) //only count "directed" triangles
+#ifdef NONATOMIC_TASKS
+      writeAdd(&counts[s], countCommon<vertex>(V[s],V[d],s,d));
+#else
       // No CAS because Hints guarantee non-speculative correctness
       counts[s] += countCommon<vertex>(V[s],V[d],s,d);
+#endif
     return 1;
   }
   inline bool cond (uintE d) const { return cond_true(d); } //does nothing

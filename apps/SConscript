@@ -1,10 +1,14 @@
 Import('fgEnv', 'cgEnv')
+naEnv = fgEnv.Clone()
+naEnv.Append(CPPDEFINES = ['NONATOMIC_TASKS'])
+naEnv['PROGSUFFIX'] = '_na'
+naEnv['OBJSUFFIX'] = '.no'
 
 apps = [
         "CF",
         "Triangle",
         ]
 
-for env in [fgEnv, cgEnv]:
+for env in [fgEnv, cgEnv, naEnv]:
     for app in apps:
         env.Program(target='pls' + app, source=[app + '_pls.C'])

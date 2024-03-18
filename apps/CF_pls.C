@@ -57,7 +57,11 @@ struct CF_Edge_F {
 
     double* cur_error = &error[current_offset];
     for (int i = 0; i < K; i++){
+#ifdef NONATOMIC_TASKS
+      writeAdd(&cur_error[i], ngh_latent[i]*err);
+#else
       cur_error[i] += ngh_latent[i]*err;
+#endif
     }
     return 1;
   }
