@@ -18,23 +18,25 @@ else
 CODE = -DBYTERLE
 endif
 
+OPT = -O3 -mtune=native
+
 #compilers
 ifdef CILK
 PCC = clang++
-PCFLAGS = -std=c++14 -fopencilk -O3 -DOPENCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
+PCFLAGS = -std=c++14 -fopencilk $(OPT) -DOPENCILK $(INTT) $(INTE) $(CODE) $(PD) $(FLAGS)
 PLFLAGS = -fopencilk
 
 else ifdef MKLROOT
 PCC = icpc
-PCFLAGS = -std=c++14 -O3 -DCILKP $(INTT) $(INTE) $(CODE) $(PD)
+PCFLAGS = -std=c++14 $(OPT) -DCILKP $(INTT) $(INTE) $(CODE) $(PD)
 
 else ifdef OPENMP
 PCC = g++
-PCFLAGS = -std=c++14 -fopenmp -march=native -O3 -DOPENMP $(INTT) $(INTE) $(CODE) $(PD)
+PCFLAGS = -std=c++14 -fopenmp -march=native $(OPT) -DOPENMP $(INTT) $(INTE) $(CODE) $(PD)
 
 else
 PCC = /nfs/ug/homes-0/y/yangste9/gcc11/bin/g++
-PCFLAGS = -std=c++17 -O3
+PCFLAGS = -std=c++17 $(OPT)
 endif
 
 COMMON= ligra.h edgeMap_utils.h index_map.h sequence.h maybe.h binary_search.h graph.h compressedVertex.h vertex.h utils.h IO.h parallel.h gettime.h quickSort.h blockRadixSort.h transpose.h parseCommandLine.h byte.h byteRLE.h nibble.h byte-pd.h byteRLE-pd.h nibble-pd.h vertexSubset.h encoder.C bucket.h counting_sort.h dyn_arr.h edgeMapReduce.h histogram.h sequentialHT.h
