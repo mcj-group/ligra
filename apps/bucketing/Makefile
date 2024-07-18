@@ -35,7 +35,7 @@ PCC = g++
 PCFLAGS = -std=c++14 -fopenmp -march=native $(OPT) -DOPENMP $(INTT) $(INTE) $(CODE) $(PD)
 
 else
-PCC = /nfs/ug/homes-0/y/yangste9/gcc11/bin/g++
+PCC = g++
 PCFLAGS = -std=c++17 $(OPT)
 endif
 
