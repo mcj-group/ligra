@@ -45,10 +45,10 @@ SetCover_MQ: SetCover_MQ.C $(COMMON) $(CPS)
 all: $(BKTMQ) $(JUL)
 
 $(COMMON):
-	ln -s ../../ligra/$@ .
+	ln -s ./ligra/$@ .
 
 $(CPS):
-	ln -s ../../../CPS/include/$@ .
+	ln -s ../CPS/include/$@ .
 
 .PHONY : clean
 
