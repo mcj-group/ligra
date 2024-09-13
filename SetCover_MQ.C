@@ -43,7 +43,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
 
         // postponed and all its elements are already covered
         // should not be added to subcover
-        uint32_t curCard = cardinality[s].load(std::memory_order_acquire);
+        uint32_t curCard = cardinality[s].load(std::memory_order_seq_cst);
         if (curCard == 0) {
             emptyWork++;
             continue;
@@ -58,7 +58,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
 
         // check if this is already in subcover
         bool flag = false;
-        if (!cover[s].compare_exchange_weak(flag, true, memory_order_acq_rel))
+        if (!cover[s].compare_exchange_weak(flag, true, memory_order_seq_cst))
             continue;
             
         // Delete Set v's member Elements from other Sets
@@ -71,7 +71,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
             // have already been processed
             bool processed = false;
             if (!isElemCovered[elem].compare_exchange_weak(
-                    processed, true, memory_order_acq_rel))
+                    processed, true, memory_order_seq_cst))
                 continue;
 
             const vertex& ve = G.V[elem];
@@ -81,12 +81,12 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
                 if (s1 == s) continue;
 
                 // decrease the outCardinlaity (priority)
-                uint32_t card = cardinality[s1].load(std::memory_order_relaxed);
+                uint32_t card = cardinality[s1].load(std::memory_order_seq_cst);
                 bool decreased = false;
                 while (!decreased && card > 0) {
                     decreased = cardinality[s1].compare_exchange_weak(
                         card, card - 1,
-                        memory_order_acq_rel, memory_order_acquire);
+                        memory_order_seq_cst, memory_order_seq_cst);
                 };
             }
         }
@@ -218,7 +218,7 @@ void initialize(graph<vertex>& GA, commandLine P) {
         cout << "max cardinality = " << m << "\n";
 
         std::function<mbq::BucketID(uint32_t)> getBucketID = [&] (uint32_t v) -> mbq::BucketID {
-            uint32_t card = cardinality[v].load(std::memory_order_acquire);
+            uint32_t card = cardinality[v].load(std::memory_order_seq_cst);
             return card;
         };
         using MQ_Bucket = mbq::MultiBucketQueue<
