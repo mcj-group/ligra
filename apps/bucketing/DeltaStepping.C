@@ -1,8 +1,11 @@
 #define WEIGHTED 1
+#define CILK 1
 #include <cmath>
+#include <chrono>
 #include "ligra.h"
 #include "index_map.h"
 #include "bucket.h"
+#include "checkSSSP.h"
 
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE VAL_MASK = INT_E_MAX;
@@ -41,7 +44,7 @@ struct Visit_F {
 };
 
 template <class vertex>
-void DeltaStepping(graph<vertex>& G, uintE src, uintE delta, size_t num_buckets=128) {
+void DeltaStepping(graph<vertex>& G, uintE src, uintE delta, size_t num_buckets=128, bool noverify=false) {
   auto V = G.V; size_t n = G.n, m = G.m;
   auto dists = array_imap<uintE>(n, [&] (size_t i) { return INT_E_MAX; });
   dists[src] = 0;
@@ -62,12 +65,16 @@ void DeltaStepping(graph<vertex>& G, uintE src, uintE delta, size_t num_buckets=
     oldDist = dest; // write back
   };
 
+  auto begin = std::chrono::high_resolution_clock::now();
+
   auto bkt = b.next_bucket();
+  uint64_t num = 0;
   while (bkt.id != b.null_bkt) {
     auto active = bkt.identifiers;
     // The output of the edgeMap is a vertexSubsetData<uintE> where the value
     // stored with each vertex is its original distance in this round
     auto res = edgeMapData<uintE>(G, active, Visit_F(dists), G.m/20, sparse_no_filter | dense_forward);
+    num+=res.size();
     vertexMap(res, apply_f);
     if (res.dense()) {
       b.update_buckets(res.get_fn_repr(), n);
@@ -77,12 +84,20 @@ void DeltaStepping(graph<vertex>& G, uintE src, uintE delta, size_t num_buckets=
     res.del(); active.del();
     bkt = b.next_bucket();
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count();
+  std::cout << "runtime_ms " << ms << "\n";
+  std::cout << num << " updates\n";
+
+  if (!noverify) checkSSSP(G, src, dists);
 }
 
 template <class vertex>
 void Compute(graph<vertex>& GA, commandLine P) {
   uintE src = P.getOptionLongValue("-src",0);
   uintE delta = P.getOptionLongValue("-delta",1);
+  bool noverify = P.getOptionValue("-noverify");
   size_t num_buckets = P.getOptionLongValue("-nb", 128);
   if (num_buckets != (1 << pbbs::log2_up(num_buckets))) {
     cout << "Please specify a number of buckets that is a power of two" << endl;
@@ -95,5 +110,5 @@ void Compute(graph<vertex>& GA, commandLine P) {
   cout << "### n: " << GA.n << endl;
   cout << "### m: " << GA.m << endl;
   cout << "### delta = " << delta << endl;
-  DeltaStepping(GA, src, delta, num_buckets);
+  DeltaStepping(GA, src, delta, num_buckets, noverify);
 }

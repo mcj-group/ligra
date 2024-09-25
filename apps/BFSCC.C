@@ -27,6 +27,7 @@
 //for dense low-diameter graphs. Do not use it on very high-diameter
 //graphs or graphs with very many components.
 #include "ligra.h"
+#include <chrono>
 
 struct BFS_F {
   uintE* Parents;
@@ -51,6 +52,8 @@ void Compute(graph<vertex>& GA, commandLine P) {
   parallel_for(long i=0;i<GA.n;i++) Parents[i] = UINT_E_MAX;
   long numVisited = 0;
 
+  auto begin = std::chrono::high_resolution_clock::now();
+
   for(long i=0;i<n;i++) {
     uintE start = i;
     if(Parents[start] == UINT_E_MAX) {
@@ -69,5 +72,9 @@ void Compute(graph<vertex>& GA, commandLine P) {
       if(numVisited == n) break;
     }
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count();
+  std::cout << "runtime_ms " << ms << "\n";
   free(Parents); 
 }

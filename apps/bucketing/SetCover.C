@@ -2,6 +2,11 @@
 #include "index_map.h"
 #include "bucket.h"
 #include "edgeMapReduce.h"
+#include "SetCover.h"
+
+#include <chrono>
+
+#define LOG_COSTS 1
 
 constexpr uintE TOP_BIT = ((uintE)INT_E_MAX) + 1;
 constexpr uintE COVERED = ((uintE)INT_E_MAX) - 1;
@@ -23,13 +28,20 @@ struct Visit_Elms {
 
 template <class vertex>
 dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
-  timer t; t.start();
+  // timer t; t.start();
+  auto begin = std::chrono::high_resolution_clock::now();
+
   auto Elms = array_imap<uintE>(G.n, [&] (size_t i) { return UINT_E_MAX; });
   auto D = array_imap<uintE>(G.n, [&] (size_t i) { return G.V[i].getOutDegree(); });
+#ifdef LOG_COSTS
   auto get_bucket_clamped = [&] (size_t deg) -> uintE { return (deg == 0) ? UINT_E_MAX : (uintE)floor(x * log((double) deg)); };
+#else
+  auto get_bucket_clamped = [&] (size_t deg) -> uintE { return (deg == 0) ? UINT_E_MAX : (uintE)deg; };
+#endif
   auto bucket_f = [&] (size_t i) { return get_bucket_clamped(D(i)); };
   auto b = make_buckets(G.n, bucket_f, decreasing, num_buckets);
   size_t rounds = 0;
+  uint64_t work = 0;
   dyn_arr<uintE> cover = dyn_arr<uintE>();
   while (true) {
     auto bkt = b.next_bucket();
@@ -43,7 +55,11 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     vertexMap(packed_vtxs, pack_apply);
 
     // Calculate the sets which still have sufficient degree (degree >= threshold)
+#ifdef LOG_COSTS
     size_t threshold = ceil(pow(1.0+epsilon,cur_bkt));
+#else
+    size_t threshold = cur_bkt;
+#endif
     auto above_threshold = [&] (const uintE& v, const uintE& deg) { return deg >= threshold; };
     auto still_active = vertexFilter2<uintE>(packed_vtxs, above_threshold);
     packed_vtxs.del();
@@ -52,7 +68,12 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
     edgeMap(G, still_active, Visit_Elms(Elms.s), -1, no_output | dense_forward);
 
     // 3. sets -> elements (count and add to cover if enough elms were won)
-    const size_t low_threshold = std::max((size_t)ceil(pow(1.0+epsilon,cur_bkt-1)), (size_t)1);
+    size_t bkt_id = (cur_bkt == 0) ? 0 : cur_bkt - 1; // Note: this is to avoid overflow
+#ifdef LOG_COSTS
+    const size_t low_threshold = std::max((size_t)ceil(pow(1.0+epsilon,bkt_id)), (size_t)1);
+#else
+    const size_t low_threshold = std::max(bkt_id, (size_t)1);
+#endif
     auto won_ngh_f = [&] (const uintE& u, const uintE& v) -> bool { return Elms[v] == u; };
     auto threshold_f = [&] (const uintE& v, const uintE& numWon) {
       if (numWon >= low_threshold) D[v] |= TOP_BIT;
@@ -84,18 +105,24 @@ dyn_arr<uintE> SetCover(graph<vertex>& G, size_t num_buckets=128) {
         bkt = b.get_bucket(cur_bkt, get_bucket_clamped(dv));
       return Maybe<tuple<uintE, uintE> >(make_tuple(v, bkt));
     };
+    work += active.size();
     b.update_buckets(f, active.size());
     active.del(); still_active.del();
     rounds++;
   }
-  t.stop(); t.reportTotal("Running time: ");
+  // t.stop(); t.reportTotal("Running time: ");
+  auto end = std::chrono::high_resolution_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count();
+  std::cout << "runtime_ms " << ms << "\n";
 
   auto elm_cov = make_in_imap<uintE>(G.n, [&] (uintE v) { return (uintE)(Elms[v] == COVERED); });
   size_t elms_cov = pbbs::reduce_add(elm_cov);
-  cout << "|V| = " << G.n << " |E| = " << G.m << endl;
-  cout << "|cover|: " << cover.size << endl;
   cout << "Rounds: " << rounds << endl;
   cout << "Num_uncovered = " << (G.n - elms_cov) << endl;
+  cout << "work = " << work << endl;
+  std::vector<std::reference_wrapper<uintE>> cover_ref(cover.A,
+                                                       cover.A + cover.size);
+  if (!setcover::success<vertex>(G, cover_ref)) std::abort();
   return cover;
 }
 

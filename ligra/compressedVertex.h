@@ -26,7 +26,7 @@ namespace decode_compressed {
     VS vs;
     F f;
     G g;
-  denseT(F &_f, G &_g, VS& _vs) : f(_f), g(_g), vs(_vs) {}
+  denseT(F &_f, G &_g, VS& _vs) : vs(_vs), f(_f), g(_g) {}
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (vs.isIn(target)) {
@@ -75,7 +75,7 @@ namespace decode_compressed {
     uintT v, o;
     F f;
     G g;
-  sparseT(F &_f, G &_g, uintT vP, uintT oP) : f(_f), g(_g), v(vP), o(oP) { }
+  sparseT(F &_f, G &_g, uintT vP, uintT oP) : v(vP), o(oP), f(_f), g(_g) { }
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (f.cond(target)) {
@@ -103,7 +103,7 @@ namespace decode_compressed {
     F f;
     G g;
     size_t& k;
-  sparseTSeq(F &_f, G &_g, uintT vP, uintT oP, size_t& _k) : f(_f), g(_g), v(vP), o(oP), k(_k) { }
+  sparseTSeq(F &_f, G &_g, uintT vP, uintT oP, size_t& _k) : v(vP), o(oP), f(_f), g(_g), k(_k) { }
 #ifndef WEIGHTED
     inline bool srcTarg(const uintE &src, const uintE &target, const uintT &edgeNumber) {
       if (f.cond(target)) {

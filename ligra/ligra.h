@@ -1,5 +1,5 @@
 // This code is part of the project "Ligra: A Lightweight Graph Processing
-// Framework for Shared Memory", presented at Principles and Practice of 
+// Framework for Shared Memory", presented at Principles and Practice of
 // Parallel Programming, 2013.
 // Copyright (c) 2013 Julian Shun and Guy Blelloch
 //
@@ -245,7 +245,7 @@ vertexSubsetData<data> edgeMapData(graph<vertex>& GA, VS &vs, F f,
   uintT* degrees = NULL;
   vertex* frontierVertices = NULL;
   uintT outDegrees = 0;
-  if(threshold > 0) { //compute sum of out-degrees if threshold > 0 
+  if(threshold > 0) { //compute sum of out-degrees if threshold > 0
     vs.toSparse();
     degrees = newA(uintT, m);
     frontierVertices = newA(vertex,m);

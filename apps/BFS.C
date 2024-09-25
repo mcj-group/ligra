@@ -22,6 +22,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ligra.h"
+#include <chrono>
 
 struct BFS_F {
   uintE* Parents;
@@ -45,12 +46,22 @@ void Compute(graph<vertex>& GA, commandLine P) {
   uintE* Parents = newA(uintE,n);
   parallel_for(long i=0;i<n;i++) Parents[i] = UINT_E_MAX;
   Parents[start] = start;
+
+  uint64_t fronts = 0;
+  auto begin = std::chrono::high_resolution_clock::now();
+
   vertexSubset Frontier(n,start); //creates initial frontier
   while(!Frontier.isEmpty()){ //loop until frontier is empty
+    fronts++;
     vertexSubset output = edgeMap(GA, Frontier, BFS_F(Parents));    
     Frontier.del();
     Frontier = output; //set new frontier
   } 
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count();
+  std::cout << "runtime_ms " << ms << "\n";
+  std::cout << "fronts " << fronts << "\n";
   Frontier.del();
   free(Parents); 
 }

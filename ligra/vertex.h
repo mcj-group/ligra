@@ -3,6 +3,10 @@
 #include "vertexSubset.h"
 using namespace std;
 
+#ifdef CAN_USE_SWARM_API
+#include "vertex_pls.h"
+#endif
+
 namespace decode_uncompressed {
 
   // Used by edgeMapDense. Callers ensure cond(v_id). For each vertex, decode
@@ -238,7 +242,12 @@ symmetricVertex(intE* n, uintT d)
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+#ifdef CAN_USE_SWARM_API
+    // FIXME(mcj) implement a PLSvertex?
+    decode_uncompressed::pls_decodeInNghBreakEarly<symmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g);
+#else
     decode_uncompressed::decodeInNghBreakEarly<symmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+#endif
   }
 
   template <class F, class G>
@@ -324,7 +333,12 @@ asymmetricVertex(intE* iN, intE* oN, uintT id, uintT od)
 
   template <class VS, class F, class G>
   inline void decodeInNghBreakEarly(long v_id, VS& vertexSubset, F &f, G &g, bool parallel = 0) {
+#ifdef CAN_USE_SWARM_API
+    // FIXME(mcj) implement a PLSvertex?
+    decode_uncompressed::pls_decodeInNghBreakEarly<asymmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g);
+#else
     decode_uncompressed::decodeInNghBreakEarly<asymmetricVertex, F, G, VS>(this, v_id, vertexSubset, f, g, parallel);
+#endif
   }
 
   template <class F, class G>
