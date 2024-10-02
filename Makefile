@@ -48,7 +48,7 @@ $(COMMON):
 	ln -s ./ligra/$@ .
 
 $(CPS):
-	ln -s ../CPS/include/$@ .
+	ln -s ../cps/include/$@ .
 
 .PHONY : clean
 
