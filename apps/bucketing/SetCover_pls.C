@@ -86,7 +86,6 @@ static inline void init(swarm::Timestamp, uintE s) {
 template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uint64_t elem);
 
-
 template <class vertex>
 static inline void addSet(swarm::Timestamp ts, uintE s) {
 //#ifndef COMPETITIVE_SCHEDULE
@@ -192,10 +191,12 @@ template<class vertex>
 static inline void decrementCardinality(swarm::Timestamp, std::atomic<int64_t>* cptr) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
     cptr->fetch_sub(1, std::memory_order_relaxed);
+}
 #else
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
     if(*cptr > 0) (*cptr)--;
+}
 #endif
 #if 0
     if(*cptr == 0) {
@@ -208,7 +209,7 @@ static inline void decrementCardinality(swarm::Timestamp, uintE* cptr) {
         }
     }
 #endif
-}
+//}
 //#endif
 
 
@@ -390,6 +391,21 @@ void SetCover(graph<vertex>& G) {
         [] (swarm::Timestamp ts) { return ts; },
         [] (swarm::Timestamp) -> swarm::Hint { return EnqFlags(NOHINT | MAYSPEC); }
     );
+    void* ifn = reinterpret_cast<void*>(swarm::bareRunner<decltype(init<vertex>), init<vertex>, uintE>);
+    swarm::programTSP(ifn, 10, 0, reinterpret_cast<uintptr_t>(vertices), 32, 8);
+    swarm::programTSP(ifn, 11, 0, reinterpret_cast<uintptr_t>(&cardinalities[0]), 8, 8);
+    void* afn = reinterpret_cast<void*>(swarm::bareRunner<decltype(addSet<vertex>), addSet<vertex>, uintE>);
+    swarm::programTSP(afn, 10, 0, reinterpret_cast<uintptr_t>(&cardinalities[0]), 8, 8);
+    swarm::programTSP(afn, 11, 0, reinterpret_cast<uintptr_t>(&cover[0]), 8, 8);
+    swarm::programTSP(afn, 12, 0, reinterpret_cast<uintptr_t>(vertices), 32, 8);
+    void* cfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(coverElement<vertex>), coverElement<vertex>, uintE, uintE>);
+    swarm::programTSP(cfn, 10, 1, reinterpret_cast<uintptr_t>(vertices), 32, 8);
+#ifdef NONATOMIC_TASKS
+    void* dfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(decrementCardinality<vertex>), decrementCardinality<vertex>, std::atomic<int64_t>*>);
+#else
+    void* dfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(decrementCardinality<vertex>), decrementCardinality<vertex>, uintE*>);
+#endif
+    swarm::programTSP(dfn, 10, 0, 0, 1, 8);
 
     swarm::run();
 
