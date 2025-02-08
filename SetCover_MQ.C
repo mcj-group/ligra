@@ -60,7 +60,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
         bool flag = false;
         if (!cover[s].compare_exchange_weak(flag, true, memory_order_acq_rel))
             continue;
-            
+
         // Delete Set v's member Elements from other Sets
         const vertex& vs = G.V[s];
         size_t sD = vs.getOutDegree();
@@ -96,7 +96,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
 }
 
 template <class vertex, typename MQ_Type>
-void spawnTasks(graph<vertex>& G, MQ_Type &wl, int threadNum, 
+void spawnTasks(graph<vertex>& G, MQ_Type &wl, int threadNum,
                 atomic<bool>* isElemCovered, atomic<uint32_t>* cardinality,
                 atomic<bool>* cover, bool noverify=false)
 {
@@ -222,7 +222,7 @@ void initialize(graph<vertex>& GA, commandLine P) {
             return card;
         };
         using MQ_Bucket = mbq::MultiBucketQueue<
-            decltype(getBucketID), decltype(prefetcher), 
+            decltype(getBucketID), decltype(prefetcher),
             less<uintE>, uintE, uintE, usePrefetch>;
         MQ_Bucket wl(getBucketID, prefetcher, queueNum, threadNum, 0,
                  bucketNum, batchSizePop, batchSizePush, mbq::decreasing, stickiness, m);
@@ -232,7 +232,6 @@ void initialize(graph<vertex>& GA, commandLine P) {
         using MQ = mbq::MultiQueue<decltype(prefetcher), less<PQElement>, uintE, uintE, usePrefetch>;
         MQ wl(prefetcher, queueNum, threadNum, batchSizePop, batchSizePush, stickiness);
         spawnTasks<vertex, MQ>(GA, wl, threadNum, isElemCovered, cardinality, cover, noverify);
-    
     } else {
         cout << "Invalid type!\n";
     }
