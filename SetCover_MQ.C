@@ -21,9 +21,9 @@ struct stats {
 
 template <class vertex, typename MQ>
 void MQThreadTask(graph<vertex>& G, MQ& wl,
-                            atomic<bool>* isElemCovered,
+                            atomic_flag* isElemCovered,
                             atomic<uint32_t>* cardinality,
-                            atomic<bool>* cover,
+                            atomic_flag* cover,
                             stats* threadStat)
 {
     uint64_t emptyWork = 0;
@@ -57,9 +57,10 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
         }
 
         // check if this is already in subcover
-        bool flag = false;
-        if (!cover[s].compare_exchange_weak(flag, true, memory_order_acq_rel))
+        if (cover[s].test() || cover[s].test_and_set()) {
+            emptyWork++;
             continue;
+        }
 
         // Delete Set v's member Elements from other Sets
         const vertex& vs = G.V[s];
@@ -69,9 +70,7 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
 
             // check if this node's member elements
             // have already been processed
-            bool processed = false;
-            if (!isElemCovered[elem].compare_exchange_weak(
-                    processed, true, memory_order_acq_rel))
+            if (isElemCovered[elem].test() || isElemCovered[elem].test_and_set())
                 continue;
 
             const vertex& ve = G.V[elem];
@@ -97,8 +96,8 @@ void MQThreadTask(graph<vertex>& G, MQ& wl,
 
 template <class vertex, typename MQ_Type>
 void spawnTasks(graph<vertex>& G, MQ_Type &wl, int threadNum,
-                atomic<bool>* isElemCovered, atomic<uint32_t>* cardinality,
-                atomic<bool>* cover, bool noverify=false)
+                atomic_flag* isElemCovered, atomic<uint32_t>* cardinality,
+                atomic_flag* cover, bool noverify=false)
 {
     int cnt1 = 0, cnt2 = 0;
     // Queue each Set, prioritized by its current (initial) degree/cardinality
@@ -169,7 +168,7 @@ void spawnTasks(graph<vertex>& G, MQ_Type &wl, int threadNum,
         vector<uintE> checkCover;
         checkCover.reserve(G.n);
         for (int i = 0; i < G.n; i++) {
-            if (cover[i])
+            if (cover[i].test())
                 checkCover.push_back(i);
         }
         if (!setcover::success<vertex>(G, checkCover)) abort();
@@ -202,8 +201,8 @@ void initialize(graph<vertex>& GA, commandLine P) {
 
     // initialize to 0
     atomic<uint32_t>* cardinality = new atomic<uint32_t>[GA.n]();
-    atomic<bool>* isElemCovered = new atomic<bool>[GA.n]();
-    atomic<bool>* cover = new atomic<bool>[GA.n]();
+    atomic_flag* isElemCovered = new atomic_flag[GA.n]();
+    atomic_flag* cover = new atomic_flag[GA.n]();
 
     std::function<void(uint32_t)> prefetcher = [&] (uint32_t v) -> void {
         __builtin_prefetch(&cardinality[v], 0, 3);

@@ -42,7 +42,7 @@ DeltaStepping: DeltaStepping.C $(COMMON)
 	$(PCC) $(PCFLAGS) -o $@ $<
 
 SetCover_MQ: SetCover_MQ.C $(COMMON) $(CPS)
-	clang++ -std=c++17 -O3 -pthread $(INTT) $(INTE) $(CODE) $(PD) -o $@ $<
+	clang++ -std=c++20 -O3 $(INTT) $(INTE) $(CODE) $(PD) -o $@ $<
 
 $(COMMON):
 	ln -s ./ligra/$@ .
