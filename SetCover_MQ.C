@@ -235,6 +235,9 @@ void initialize(graph<vertex>& GA, commandLine P) {
     } else {
         cout << "Invalid type!\n";
     }
+    delete [] cover;
+    delete [] cardinality;
+    delete [] isElemCovered;
 }
 
 template <class vertex>
