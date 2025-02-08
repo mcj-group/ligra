@@ -33,6 +33,8 @@ JUL= SetCover DeltaStepping
 
 ALL= DeltaStepping SetCover
 
+all: $(BKTMQ) $(JUL)
+
 SetCover: SetCover.C $(COMMON)
 	$(PCC) $(PCFLAGS) -o $@ $<
 
@@ -41,8 +43,6 @@ DeltaStepping: DeltaStepping.C $(COMMON)
 
 SetCover_MQ: SetCover_MQ.C $(COMMON) $(CPS)
 	clang++ -std=c++17 -O3 -pthread $(INTT) $(INTE) $(CODE) $(PD) -o $@ $<
-
-all: $(BKTMQ) $(JUL)
 
 $(COMMON):
 	ln -s ./ligra/$@ .
