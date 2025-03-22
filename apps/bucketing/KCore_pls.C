@@ -70,6 +70,13 @@ array_imap<uintE> KCore(graph<vertex>& GA, size_t num_buckets=128) {
   s = new Scheduler<EnqFlags::MAYSPEC, true>(n);
 #endif
   Update<vertex> u = {GA};
+  void*ufn = reinterpret_cast<void*>(swarm::bareRunner<decltype(callUpdate<vertex>), callUpdate<vertex>,
+    Update<vertex>*, uintE>);
+  swarm::programTSP(ufn, 10, 1, reinterpret_cast<uintptr_t>(s->tracked_metadata), sizeof(s->tracked_metadata[0]), sizeof(s->tracked_metadata[0]));
+  swarm::programTSP(ufn, 11, 1, reinterpret_cast<uintptr_t>(GA.V), sizeof(GA.V[0]), sizeof(GA.V[0]));
+  void* dfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(decrementDegree<vertex>), decrementDegree<vertex>,
+        Update<vertex>*, uintE>);
+  swarm::programTSP(dfn, 10, 1, reinterpret_cast<uintptr_t>(s->tracked_metadata), sizeof(s->tracked_metadata[0]), sizeof(s->tracked_metadata[0]));
   enqueue_all_progressive<swarm::max_children>(
           swarm::u64it(0), swarm::u64it(n), [&] (Timestamp ts, uint64_t v){
                 absolute_enqueue(s, callUpdate<vertex>, GA.V[v].getOutDegree(), v, &u, v); },

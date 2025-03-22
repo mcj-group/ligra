@@ -164,7 +164,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 #else
             swarm::enqueue(coverElement<vertex>, ts,
 #ifdef NONATOMIC_TASKS
-                           {swarm::Hint::cacheLine(&((*isElemCovered)[elem])), EnqFlags::MAYSPEC},
+                           {swarm::Hint::cacheLine(&((*isElemCovered)[elem])), EnqFlags(PRODUCER | MAYSPEC)},
 #else
                            {isElemCovered.hint(elem), EnqFlags(PRODUCER | MAYSPEC)},
 #endif
