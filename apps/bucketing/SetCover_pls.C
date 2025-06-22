@@ -125,7 +125,8 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
             }
             const vertex& vs = V<vertex>(s);
             size_t sD = vs.getOutDegree();
-            swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC)>(
+            swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC),
+                swarm::max_children-1>(
                 swarm::u64it(0),
                 swarm::u64it(sD),
                 [s,&vs] (swarm::Timestamp ts, uint64_t i) {
@@ -281,7 +282,7 @@ static inline void decrementCardinality(swarm::Timestamp, uintE* cptr, int delta
 #ifndef NONATOMIC_TASKS
 template <class vertex>
 static inline void unCoverElement(swarm::Timestamp ts, uintE s, uintE elem) {
-    if (coveredBy[elem] & 0xFFFFFFFF != s) return;
+    if ((coveredBy[elem] & 0xFFFFFFFF) != s) return;
     coveredBy[elem] = UINT64_MAX;
     const vertex& ve = V<vertex>(elem);
     size_t elemD = ve.getInDegree();
@@ -310,8 +311,8 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
     if ((*isElemCovered)[elem].test_and_set()) return;
 #else
     uint64_t oldCover = coveredBy[elem];
-    if (oldCover < (ts << 32) | s) return;
-    coveredBy[elem] = (ts << 32) | s;
+    if (oldCover < ((ts << 32) | s)) return;
+    coveredBy[elem] = ((ts << 32) | s);
     if (oldCover == UINT64_MAX) {
 #endif
 #endif
@@ -344,7 +345,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
     }
     else
     {
-        uintE prev = oldCover &0xFFFFFFFF;
+        uintE prev = (oldCover & 0xFFFFFFFF);
         swarm::enqueue(decrementCardinality<vertex>, ts,
               {hint(prev), EnqFlags::MAYSPEC}, &cardinalities[prev], 1);
         swarm::enqueue(decrementCardinality<vertex>, ts,
