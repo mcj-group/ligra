@@ -48,15 +48,16 @@ constexpr swarm::Timestamp timestamp(uint64_t cardinality, uint64_t setID) {
     return (invert << 32ul) | setID;
 }
 
+#define TS_PER_ROUND 4
 constexpr swarm::Timestamp roundTS(uint64_t cardinality)
 {
     uint64_t invert = UINT32_MAX - 8ul - cardinality;
-    return (invert << 2ul);
+    return (invert*TS_PER_ROUND);
 }
 
 
 constexpr uintE roundCardinality(swarm::Timestamp ts) {
-    return UINT32_MAX - 8ul - (ts >> 2);
+    return UINT32_MAX - 8ul - (ts/TS_PER_ROUND);
 }
 
 
@@ -117,8 +118,10 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
         if (roundCardinality(ts) - cardinalities[s] > 1)
         {  //lost at least 2 neighbours, so unclaim neighbours and postpone
             if (cardinalities[s])
-            {   //postpone
-                swarm::enqueue(addSet<vertex>, roundTS(cardinalities[s]), EnqFlags::SAMEHINT, s);
+            {   //postpone by calling addSet in the next round even though our cardinality is lower
+                //This is because it might get boosted by other failures'
+                //unclaims, so we don't know what to postpone to yet.
+                swarm::enqueue(addSet<vertex>, ts+TS_PER_ROUND-1, EnqFlags::SAMEHINT, s);
             }
             const vertex& vs = V<vertex>(s);
             size_t sD = vs.getOutDegree();
@@ -135,7 +138,7 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
         }
         else
         { //only lost 1 neighbour, so skip unclaim/claim and just reconfirm next round
-            swarm::enqueue(confirmAddSet<vertex>, roundTS(cardinalities[s])+1, EnqFlags(SAMEHINT | SAMETASK | MAYSPEC), s);
+            swarm::enqueue(confirmAddSet<vertex>, ts+TS_PER_ROUND, EnqFlags(SAMEHINT | SAMETASK | MAYSPEC), s);
         }
         return;
     }
@@ -209,7 +212,8 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
         assert(false);
     }
 #endif
-    swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC)>(
+    swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC),
+        swarm::max_children - 1>(
         swarm::u64it(0),
         swarm::u64it(sD),
         [s,&vs] (swarm::Timestamp ts, uint64_t i) {
