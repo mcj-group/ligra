@@ -125,7 +125,7 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
             //We need to do this even if we lost all (>1) neighbours, since the
             //sets we lost to might also fail, and end up with lower cardinality
             //than us afterwards
-            swarm::enqueue(addSet<vertex>, ts+TS_PER_ROUND-1, EnqFlags::SAMEHINT, s);
+            swarm::enqueue(addSet<vertex>, ts+TS_PER_ROUND-2, EnqFlags::SAMEHINT, s);
             const vertex& vs = V<vertex>(s);
             size_t sD = vs.getOutDegree();
             swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC),
@@ -138,7 +138,7 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
                            {ehint(elem), EnqFlags(PRODUCER | MAYSPEC)},
                            s, elem);
             },
-            ts+1);
+            ts);
         }
         else if (cardinalities[s]) //if we lost our only neighbour, we're definitely not in the cover
         { //only lost 1 neighbour, so skip unclaim/claim and just reconfirm next round
@@ -191,7 +191,6 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 #else
     DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
           s, cardinality(ts), V<vertex>(s).getOutDegree());
-    swarm::enqueue(confirmAddSet<vertex>, ts+1, EnqFlags(SAMEHINT | MAYSPEC), s);
     //cardinalities[s] = 0;
 #endif
 //#endif
@@ -241,6 +240,9 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 #endif
         },
         ts);
+#ifndef NONATOMIC_TASKS
+    swarm::enqueue(confirmAddSet<vertex>, ts+2, EnqFlags(SAMEHINT | MAYSPEC), s);
+#endif
 }
 
 
@@ -296,7 +298,7 @@ static inline void unCoverElement(swarm::Timestamp ts, uintE s, uintE elem) {
             uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
                 auto cptr = &cardinalities[s1];
-                swarm::enqueue(decrementCardinality<vertex>, ts,
+                swarm::enqueue(decrementCardinality<vertex>, ts+1,
                         {hint(s1), EnqFlags::MAYSPEC}, cptr, -1);
             }
         },
@@ -337,7 +339,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
                         {hint(s1), EnqFlags::MAYSPEC}, cptr);
 #else
                 auto cptr = &cardinalities[s1];
-                swarm::enqueue(decrementCardinality<vertex>, ts,
+                swarm::enqueue(decrementCardinality<vertex>, ts+1,
                         {hint(s1), EnqFlags::MAYSPEC}, cptr, 1);
 #endif
 //#endif
@@ -349,9 +351,9 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
     else
     {
         uintE prev = (oldCover & 0xFFFFFFFF);
-        swarm::enqueue(decrementCardinality<vertex>, ts,
+        swarm::enqueue(decrementCardinality<vertex>, ts+1,
               {hint(prev), EnqFlags::MAYSPEC}, &cardinalities[prev], 1);
-        swarm::enqueue(decrementCardinality<vertex>, ts,
+        swarm::enqueue(decrementCardinality<vertex>, ts+1,
               {hint(s), EnqFlags::MAYSPEC}, &cardinalities[s], -1);
     }
 #endif
