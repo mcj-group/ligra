@@ -113,6 +113,8 @@ static inline void addSet(swarm::Timestamp ts, uintE s);
 template <class vertex>
 static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
 {
+    DEBUG("Confirm adding s=%u round=%u, |s|=%u Deg(s)=%u to the cover\n",
+          s, roundCardinality(ts), cardinalities[s], V<vertex>(s).getOutDegree());
     if (roundCardinality(ts) > cardinalities[s])
     {  //failed to claim all neighbours, so postpone adding this set
         if (roundCardinality(ts) - cardinalities[s] > 1)
@@ -175,8 +177,6 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
     }
 //#endif
 
-    DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
-          s, cardinality(ts), V<vertex>(s).getOutDegree());
 
     // FIXME(mcj) should the cover data structure just be a bit vector that
     // we then collapse at the end?
@@ -189,6 +189,8 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 #ifdef NONATOMIC_TASKS
     (*cardinalities)[s].store(0, std::memory_order_relaxed);
 #else
+    DEBUG("Add s=%u |s|=%u Deg(s)=%u to the cover\n",
+          s, cardinality(ts), V<vertex>(s).getOutDegree());
     swarm::enqueue(confirmAddSet<vertex>, ts+1, EnqFlags(SAMEHINT | MAYSPEC), s);
     //cardinalities[s] = 0;
 #endif
@@ -256,13 +258,12 @@ static inline void decrementCardinality(swarm::Timestamp, uintE s) {
 template<class vertex>
 #ifdef NONATOMIC_TASKS
 static inline void decrementCardinality(swarm::Timestamp, std::atomic<int64_t>* cptr) {
-    DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
     cptr->fetch_sub(1, std::memory_order_relaxed);
 }
 #else
 static inline void decrementCardinality(swarm::Timestamp, uintE* cptr, int delta) {
     DEBUG("decrement cardinality of set %lu to %lu", std::distance(&cardinalities[0], cptr), *cptr - 1);
-    if(delta < 0 || *cptr > 0) (*cptr) += delta;
+    if(delta < 0 || *cptr > 0) (*cptr) -= delta;
 }
 #endif
 #if 0
@@ -282,6 +283,8 @@ static inline void decrementCardinality(swarm::Timestamp, uintE* cptr, int delta
 #ifndef NONATOMIC_TASKS
 template <class vertex>
 static inline void unCoverElement(swarm::Timestamp ts, uintE s, uintE elem) {
+    DEBUG("%lu: Uncover element %lu by set %lu, degree %u, currently covered by: %u @ %lu",
+            ts, elem, s, V<vertex>(elem).getInDegree(), (coveredBy[elem] & 0xFFFFFFFF), (coveredBy[elem] >> 32));
     if ((coveredBy[elem] & 0xFFFFFFFF) != s) return;
     coveredBy[elem] = UINT64_MAX;
     const vertex& ve = V<vertex>(elem);
@@ -304,12 +307,12 @@ static inline void unCoverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 
 template <class vertex>
 static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
-    DEBUG("%lu: Cover element %lu by set %lu, degree %u, currently %scovered",
-            ts, elem, s, V<vertex>(elem).getInDegree(), isElemCovered.test(elem) ? "" : "un");
 #if !defined(COMPETITIVE_SCHEDULE) && !defined(HIVE_BASIC)
 #ifdef NONATOMIC_TASKS
     if ((*isElemCovered)[elem].test_and_set()) return;
 #else
+    DEBUG("%lu: Cover element %lu by set %lu, degree %u, currently covered by: %u @ %lu",
+            ts, elem, s, V<vertex>(elem).getInDegree(), (coveredBy[elem] & 0xFFFFFFFF), (coveredBy[elem] >> 32));
     uint64_t oldCover = coveredBy[elem];
     if (oldCover < ((ts << 32) | s)) return;
     coveredBy[elem] = ((ts << 32) | s);
