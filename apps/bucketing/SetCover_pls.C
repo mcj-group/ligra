@@ -108,7 +108,6 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
        if (cardinality(ts) == 1) return; //definitely not part of cover, and nothing to uncover
         DEBUG("Failed adding s=%u round=%u, |s|=%u Deg(s)=%u to the cover\n",
           s, roundCardinality(ts), cardinalities[s], V<vertex>(s).getOutDegree());
-        swarm::enqueue(addSet<vertex>, ts+2, EnqFlags::SAMEHINT, s);
         const vertex& vs = V<vertex>(s);
         size_t sD = vs.getOutDegree();
         swarm::enqueue_all<EnqFlags(NOHINT | MAYSPEC),
@@ -118,10 +117,11 @@ static inline void confirmAddSet(swarm::Timestamp ts, uintE s)
             [s,&vs] (swarm::Timestamp ts, uint64_t i) {
                 uintE elem = vs.getOutNeighbor(i);
                 swarm::enqueue(unCoverElement<vertex>, ts,
-                       {ehint(elem), EnqFlags(PRODUCER | MAYSPEC)},
+                       {ehint(elem), EnqFlags::MAYSPEC},
                        s, elem);
             },
             ts);
+        swarm::enqueue(addSet<vertex>, ts+2, EnqFlags(SAMEHINT | MAYSPEC | PRODUCER), s);
     }
     else
     {   //add to cover
@@ -148,7 +148,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
             // So re-enqueue with the correct timestamp for |s|.
             ts = timestamp(cardinalities[s], 0);
 #endif
-            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK | MAYSPEC);
+            EnqFlags flags = EnqFlags(SAMEHINT | SAMETASK | MAYSPEC | PRODUCER);
             swarm::enqueue(addSet<vertex>, ts, flags, s);
         }
         return;
@@ -212,7 +212,7 @@ static inline void addSet(swarm::Timestamp ts, uintE s) {
 #ifdef NONATOMIC_TASKS
                            {swarm::Hint::cacheLine(&((*isElemCovered)[elem])), EnqFlags(PRODUCER | MAYSPEC)},
 #else
-                           {ehint(elem), EnqFlags(PRODUCER | MAYSPEC)},
+                           {ehint(elem), EnqFlags::MAYSPEC},
 #endif
                            s, elem);
 #endif
@@ -286,13 +286,13 @@ static inline void unCoverElement(swarm::Timestamp ts, uintE s, uintE elem) {
             uintE s1 = ve.getInNeighbor(j);
             if (s1 != s) {
                 auto cptr = &cardinalities[s1];
-                swarm::enqueue(incrementCardinality<vertex>, ts+1,
+                swarm::enqueue(incrementCardinality<vertex>, ts,
                         {hint(s1), EnqFlags::MAYSPEC}, cptr
                         //, elem
                         );
             }
         },
-        ts);
+        ts+1);
 
 }
 #endif
@@ -332,7 +332,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
                         {hint(s1), EnqFlags::MAYSPEC}, cptr);
 #else
                 auto cptr = &cardinalities[s1];
-                swarm::enqueue(decrementCardinality<vertex>, ts+1,
+                swarm::enqueue(decrementCardinality<vertex>, ts,
                         {hint(s1), EnqFlags::MAYSPEC}, cptr
                         //, elem
                         );
@@ -340,7 +340,7 @@ static inline void coverElement(swarm::Timestamp ts, uintE s, uintE elem) {
 //#endif
             }
         },
-        ts);
+        ts+1);
 #ifndef NONATOMIC_TASKS
     }
     else
@@ -525,7 +525,7 @@ void SetCover(graph<vertex>& G) {
 //#else
                            timestamp(cardinality(ts), 0),
 //#endif
-                           {hint(s), EnqFlags::MAYSPEC}, s);
+                           {hint(s), EnqFlags(MAYSPEC | PRODUCER)}, s);
         },
 #ifdef NONATOMIC_TASKS
         [] (swarm::Timestamp ts) { return ts; },
