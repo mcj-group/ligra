@@ -242,10 +242,8 @@ static inline void decrementCardinality(swarm::Timestamp, std::atomic<int64_t>* 
 }
 #else
 static inline void decrementCardinality(swarm::Timestamp ts, uintE* cptr/*, uintE cause*/) {
-    if(*cptr > 0){
-        DEBUG("%lu: decrement cardinality of set %lu to %lu due to %u", ts, std::distance(&cardinalities[0], cptr), *cptr - 1, cause);
-        (*cptr) -= 1;
-    }
+    DEBUG("%lu: decrement cardinality of set %lu to %lu due to %u", ts, std::distance(&cardinalities[0], cptr), *cptr - 1, cause);
+    (*cptr) -= 1;
 }
 
 template<class vertex>
