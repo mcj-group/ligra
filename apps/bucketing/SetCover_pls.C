@@ -544,7 +544,11 @@ void SetCover(graph<vertex>& G) {
 #ifdef NONATOMIC_TASKS
     void* dfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(decrementCardinality<vertex>), decrementCardinality<vertex>, std::atomic<int64_t>*>);
 #else
+    void* ufn = reinterpret_cast<void*>(swarm::bareRunner<decltype(unCoverElement<vertex>), unCoverElement<vertex>, uintE, uintE>);
+    swarm::programTSP(ufn, 10, 1, reinterpret_cast<uintptr_t>(vertices), 32, 8);
     void* dfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(decrementCardinality<vertex>), decrementCardinality<vertex>, uintE*>);
+    void* incfn = reinterpret_cast<void*>(swarm::bareRunner<decltype(incrementCardinality<vertex>), incrementCardinality<vertex>, uintE*>);
+    swarm::programTSP(incfn, 10, 0, 0, 1, 8);
 #endif
     swarm::programTSP(dfn, 10, 0, 0, 1, 8);
 
